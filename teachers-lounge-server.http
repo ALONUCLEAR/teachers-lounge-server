@@ -1,0 +1,6 @@
+@teachers_lounge_server_HostAddress = http://localhost:3000
+
+GET {{teachers_lounge_server_HostAddress}}/demo/
+Accept: application/json
+
+###
