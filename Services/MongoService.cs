@@ -47,9 +47,8 @@ namespace teachers_lounge_server.Services
         }
         public async static Task<ReplaceOneResult> UpsertEntity<T>(IMongoCollection<BsonDocument> collection, T upsertedEntity) where T : MongoEntity
         {
-            if (upsertedEntity.id.Length != 24)
+            if (!upsertedEntity.id.IsObjectId())
             {
-                // Not even a real id so no reason to check if it exists
                 await CreateEntity(collection, upsertedEntity);
                 return new ReplaceOneResult.Acknowledged(0, 1, null);
             }
@@ -72,6 +71,18 @@ namespace teachers_lounge_server.Services
             var upsertResult = await collection.ReplaceOneAsync(filter, upsertedBson, new ReplaceOptions { IsUpsert = true });
 
             return upsertResult;
+        }
+
+        public async static Task<bool> DeleteEntity(IMongoCollection<BsonDocument> collection, string entityId)
+        {
+            if (!entityId.IsObjectId())
+            {
+                return false;
+            }
+            var filter = Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(entityId));
+            await collection.DeleteOneAsync(filter);
+
+            return true;
         }
     }
 }

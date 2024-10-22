@@ -1,7 +1,15 @@
-﻿namespace teachers_lounge_server
+﻿using MongoDB.Bson;
+
+namespace teachers_lounge_server
 {
     public static class Utils
     {
+        public static bool IsObjectId(this string potentialId)
+        {
+            var empty = ObjectId.Empty;
+
+            return ObjectId.TryParse(potentialId, out empty);
+        }
         public static T[] Merge<T>(params T[][] arrays)
         {
             if (arrays.Length < 1) return new T[0];

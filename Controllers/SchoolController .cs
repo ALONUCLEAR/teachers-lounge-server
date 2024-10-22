@@ -27,5 +27,11 @@ namespace teachers_lounge_server.Controllers
         {
             return Ok(await SchoolService.UpsertSchool(school));
         }
+
+        [HttpDelete("{schoolId}", Name = "Delete school")]
+        public async Task<ActionResult<bool>> DeleteSchool(string schoolId)
+        {
+            return Ok(await SchoolService.DeleteSchool(schoolId));
+        }
     }
 }

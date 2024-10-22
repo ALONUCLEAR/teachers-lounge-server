@@ -17,5 +17,9 @@ namespace teachers_lounge_server.Services
         {
             return repo.UpsertSchool(school);
         }
+        public static Task<bool> DeleteSchool(string schoolId)
+        {
+            return repo.DeleteSchool(schoolId);
+        }
     }
 }

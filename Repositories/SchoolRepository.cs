@@ -15,5 +15,9 @@ namespace teachers_lounge_server.Repositories
         {
             return MongoService.UpsertEntity(Collection, school);
         }
+        public Task<bool> DeleteSchool(string schoolId)
+        {
+            return MongoService.DeleteEntity(Collection, schoolId);
+        }
     }
 }

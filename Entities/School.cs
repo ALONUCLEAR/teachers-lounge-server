@@ -28,10 +28,12 @@ namespace teachers_lounge_server.Entities
         public BsonDocument ToBsonDocument()
         {
             var fullDocument = new BsonDocument();
-            if (id.Length == 24)
+
+            if (id.IsObjectId())
             {
                 fullDocument.Add("_id", ObjectId.Parse(id));
             }
+
             fullDocument.Add("name", name);
             fullDocument.Add("municipality", municipality.ToBsonDocument());
             fullDocument.Add("address", address.ToBsonDocument());
