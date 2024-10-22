@@ -1,13 +1,21 @@
-﻿using teachers_lounge_server.Entities;
+﻿using MongoDB.Bson;
+using MongoDB.Driver;
+using System.Collections;
+using teachers_lounge_server.Entities;
 using teachers_lounge_server.Repositories;
 
 namespace teachers_lounge_server.Services
 {
     public class SchoolService
     {
-        public static Task<List<School>> getAllSchools()
+        private static SchoolRepository repo => new SchoolRepository();
+        public static Task<List<School>> GetAllSchools()
         {
-            return SchoolRepository.getAllSchools();
+            return repo.GetAllSchools();
+        }
+        public static Task<ReplaceOneResult> UpsertSchool(School school)
+        {
+            return repo.UpsertSchool(school);
         }
     }
 }

@@ -1,14 +1,19 @@
-﻿using teachers_lounge_server.Entities;
+﻿using MongoDB.Driver;
+using teachers_lounge_server.Entities;
 using teachers_lounge_server.Services;
 
 namespace teachers_lounge_server.Repositories
 {
-    public class SchoolRepository
+    public class SchoolRepository: Repository
     {
-        private const string collectionName = "schools";
-        public static Task<List<School>> getAllSchools()
+        protected override string CollectionName => "schools";
+        public Task<List<School>> GetAllSchools()
         {
-            return MongoService.getEntireCollection<School>(collectionName);
+            return MongoService.GetEntireCollection<School>(Collection);
+        }
+        public Task<ReplaceOneResult> UpsertSchool(School school)
+        {
+            return MongoService.UpsertEntity(Collection, school);
         }
     }
 }
