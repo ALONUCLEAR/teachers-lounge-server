@@ -1,5 +1,8 @@
-﻿namespace teachers_lounge_server.Entities
+﻿using MongoDB.Bson.Serialization.Attributes;
+
+namespace teachers_lounge_server.Entities
 {
+    [BsonNoId]
     public class GovernmentData
     {
         public int id { get; set; }

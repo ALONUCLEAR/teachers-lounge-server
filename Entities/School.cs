@@ -1,7 +1,12 @@
-﻿namespace teachers_lounge_server.Entities
+﻿using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson;
+
+namespace teachers_lounge_server.Entities
 {
+    [BsonNoId]
     public class School
     {
+        [BsonRepresentation(BsonType.ObjectId)]
         public string id { get; set; }
         public string name { get; set; }
         public GovernmentData municipality { get; set; }

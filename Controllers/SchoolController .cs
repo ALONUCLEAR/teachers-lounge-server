@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using teachers_lounge_server.Entities;
+using teachers_lounge_server.Services;
 
 namespace teachers_lounge_server.Controllers
 {
@@ -38,12 +39,23 @@ namespace teachers_lounge_server.Controllers
                 return schools;
             }
         }
-        // TODO: connect to mongo
 
-        [HttpGet(Name = "GetAllSchools")]
+        [HttpGet("mocks", Name = "GetAllSchools")]
         public ActionResult<IEnumerable<School>> Get()
         {
             return Ok(MockSchoools);
+        }
+
+        [HttpGet("details", Name= "Details")]
+        public ActionResult<string[]> Details()
+        {
+            return Ok(MongoService.Details);
+        }
+
+        [HttpGet(Name = "All schools")]
+        public async Task<ActionResult<IEnumerable<School>>> GetAllSchools()
+        {
+            return Ok(await SchoolService.getAllSchools());
         }
     }
 }
