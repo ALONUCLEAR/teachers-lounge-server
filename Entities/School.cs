@@ -27,7 +27,7 @@ namespace teachers_lounge_server.Entities
         }
         public BsonDocument ToBsonDocument()
         {
-            var fullDocument = new BsonDocument();
+            BsonDocument fullDocument = new BsonDocument();
 
             if (id.IsObjectId())
             {
@@ -61,7 +61,7 @@ namespace teachers_lounge_server.Entities
 
         public BsonDocument ToBsonDocument()
         {
-            var fullDocument = new BsonDocument();
+            BsonDocument fullDocument = new BsonDocument();
             fullDocument.Add("street", street.ToBsonDocument());
             fullDocument.Add("houseNumber", houseNumber);
 

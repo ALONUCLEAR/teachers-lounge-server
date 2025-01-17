@@ -40,6 +40,15 @@ namespace teachers_lounge_server.Services
         {
             return await collection.Aggregate<T>(idConverterPipeline).ToListAsync();
         }
+
+        public async static Task<bool> DoesEntityWithFieldExist<TValue>(IMongoCollection<BsonDocument> collection, string field, TValue value)
+        {
+            var filter = Builders<BsonDocument>.Filter.Eq(field, value);
+            long count = await collection.CountDocumentsAsync(filter);
+
+            return count > 0;
+        }
+
         public async static Task CreateEntity<T>(IMongoCollection<BsonDocument> collection, T entityToCreate) where T : MongoEntity
         {
             var createdBson = entityToCreate.ToBsonDocument();

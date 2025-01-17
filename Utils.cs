@@ -10,6 +10,38 @@ namespace teachers_lounge_server
 
             return ObjectId.TryParse(potentialId, out empty);
         }
+        public static T? Find<T>(this T[] arr, Predicate<T> predicate) where T: class
+        {
+            foreach (T val in arr)
+            {
+                if (predicate(val))
+                {
+                    return val;
+                }
+            }
+
+            return null;
+        }
+
+        public static bool Some<T>(this T[] arr, Predicate<T> predicate)
+        {
+            foreach(T val in arr)
+            {
+                if (predicate(val))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static bool Every<T>(this T[] arr, Predicate<T> predicate)
+        {
+            Predicate<T> oppositePredicate = (T val) => !predicate(val);
+
+            return !arr.Some(oppositePredicate);
+        }
         public static T[] Merge<T>(params T[][] arrays)
         {
             if (arrays.Length < 1) return new T[0];
