@@ -12,6 +12,13 @@ namespace teachers_lounge_server.Repositories
         //    return MongoService.GetEntireCollection<User>(Collection);
         //}
 
+        // TODO: change to user object so I can get their status
+        public async Task<string> GetUserWithFieldValue<TValue>(string field, TValue value)
+        {
+            return "";
+            //return MongoService.DoesEntityWithFieldExist(Collection, field, value);
+        }
+
         public async Task<bool> DoesUserWithFieldExist<TValue>(string field, TValue value)
         {
             return false;

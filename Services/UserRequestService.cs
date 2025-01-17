@@ -37,17 +37,35 @@ namespace teachers_lounge_server.Services
                 || await acceptedUsersRepository.DoesUserWithFieldExist("govId", govId);
         }
 
-        private async static Task<bool> doesUserWithEmailExist(string email)
+        private async static Task<string> doesUserWithEmailExist(string email)
         {
-            return await repo.DoesUserWithFieldExist("email", email)
-                || await acceptedUsersRepository.DoesUserWithFieldExist("email", email);
+            if (await repo.DoesUserWithFieldExist("email", email))
+            {
+                return "קיימת כבר בקשה ליצירת משתמש עם המייל הזה.\nפנו לגורם המאשר כדי שיאשר את הצטרפותכם למערכת.";
+            }
+
+            string userStatus = await acceptedUsersRepository.GetUserWithFieldValue("email", email);
+            if (userStatus.Length > 0)
+            {
+                switch (userStatus)
+                {
+                    case "inactive":
+                        return "המשתמש המקושר לתיבת המייל הזו הושבת.\nעל מנת לשחזר אותו יש לשלוח בקשה לשחזור משתמש דרך המערכת.";
+                    default:
+                        return "קיים חשבון פעיל המקושר לתיבת המייל הזאת.\nאם שכחת את סיסמתך, קיים גם מסך \"שכחתי סיסמה\" במערכת.";
+                }
+            }
+            return "";
         }
 
         private async static Task<bool> doesUserExist(UserRequest request)
         {
-            if (await doesUserWithEmailExist(request.email))
+            string userWithEmailMessageEnd = await doesUserWithEmailExist(request.email);
+
+            if (userWithEmailMessageEnd.Length >= 0)
             {
-                // TODO: send email to that email that it exists
+                EmailService.SendMailToAddress(request.email, $"זיהינו שניסת להרשם עם כתובת המייל הזאת.\n{userWithEmailMessageEnd}");
+
                 return true;
             }
 
@@ -89,6 +107,13 @@ namespace teachers_lounge_server.Services
 
             UserRequest serializedInput = SerializeUserRequest(userRequest);
             await repo.CreateUserRequest(serializedInput);
+
+            string welcomeMessage = $"{userRequest.info.firstName} {userRequest.info.lastName},\n" +
+                $"כמה כיף לראות שפתחת בקשת השתתפות למערכת!\n" +
+                $"הבקשה נקלטה במערכת ותופץ בדקות הקרובות למאשרים הרלוונטיים.\n" +
+                $"כשהבקשה תאושר ישלח מייל לידע אותך שאפשר להתחיל להשתמש במערכת.\n" +
+                $"שיהיה לך יום קסום!";
+            await EmailService.SendMailToAddress(serializedInput.email, welcomeMessage);
 
             return StatusCodes.Status200OK;
         }
