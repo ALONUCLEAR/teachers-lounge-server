@@ -114,6 +114,7 @@ namespace teachers_lounge_server.Services
                 $"כשהבקשה תאושר ישלח מייל לידע אותך שאפשר להתחיל להשתמש במערכת.\n" +
                 $"שיהיה לך יום קסום!";
             await EmailService.SendMailToAddress(serializedInput.email, welcomeMessage);
+            // TODO: send alerts(+mails) to the group of relavent approvers
 
             return StatusCodes.Status200OK;
         }
