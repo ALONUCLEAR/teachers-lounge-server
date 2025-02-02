@@ -33,5 +33,16 @@ namespace teachers_lounge_server.Entities
 
             return fullDocument;
         }
+
+        public static GovernmentData FromBsonDocument(BsonDocument document)
+        {
+            GovernmentData result = new GovernmentData();
+
+            result.id = document.GetValue("id").AsInt32;
+            result.name = document.GetValue("name").AsString;
+            result.fk = document.GetValue("fk").AsInt32;
+
+            return result;
+        }
     }
 }

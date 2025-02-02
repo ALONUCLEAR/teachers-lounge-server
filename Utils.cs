@@ -119,5 +119,28 @@ namespace teachers_lounge_server
         {
             return GenerateCode(defaultCharSet, codeLength);
         }
+
+        public static TValue? GetValueOrDefault<TValue>(this BsonDocument document, string fieldName)
+        {
+            if (document.TryGetValue(fieldName, out BsonValue value))
+            {
+                return value.IsBsonNull ? default : value.ToNullable<TValue>() ?? default;
+            }
+
+            return default;
+        }
+
+        private static TValue? ToNullable<TValue>(this BsonValue value)
+        {
+            if (value == null) return default;
+            try
+            {
+                return (TValue)BsonTypeMapper.MapToDotNetValue(value);
+            }
+            catch
+            {
+                return default;
+            }
+        }
     }
 }

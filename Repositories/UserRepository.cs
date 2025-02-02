@@ -13,16 +13,14 @@ namespace teachers_lounge_server.Repositories
         //}
 
         // TODO: change to user object so I can get their status
-        public async Task<string> GetUserWithFieldValue<TValue>(string field, TValue value)
+        public Task<List<MiniUser>> GetUsersByField<TValue>(string field, TValue value)
         {
-            return "";
-            //return MongoService.DoesEntityWithFieldExist(Collection, field, value);
+            return MongoService.GetEntitiesByField(Collection, field, value, MiniUser.FromBsonDocument);
         }
 
-        public async Task<bool> DoesUserWithFieldExist<TValue>(string field, TValue value)
+        public Task<bool> DoesUserWithFieldExist<TValue>(string field, TValue value)
         {
-            return false;
-            //return MongoService.DoesEntityWithFieldExist(Collection, field, value);
+            return MongoService.DoesEntityWithFieldExist(Collection, field, value);
         }
 
         //public Task CreateUser(User User)

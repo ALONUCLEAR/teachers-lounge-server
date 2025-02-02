@@ -1,4 +1,5 @@
 ﻿using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using teachers_lounge_server.Entities;
 
@@ -49,12 +50,20 @@ namespace teachers_lounge_server.Services
             return count > 0;
         }
 
-        public async static Task CreateEntity<T>(IMongoCollection<BsonDocument> collection, T entityToCreate) where T : MongoEntity
+        public async static Task<List<TEntity>> GetEntitiesByField<TEntity, TValue>(IMongoCollection<BsonDocument> collection, string field, TValue value, Func<BsonDocument, TEntity> deserializer) where TEntity: MongoEntity
+        {
+            var filter = Builders<BsonDocument>.Filter.Eq(field, value);
+            var filteredEntites = await collection.Find(filter).ToListAsync();
+
+            return filteredEntites.Select(entity => deserializer(entity)).ToList();
+        }
+
+        public async static Task CreateEntity<TEntity>(IMongoCollection<BsonDocument> collection, TEntity entityToCreate) where TEntity : MongoEntity
         {
             var createdBson = entityToCreate.ToBsonDocument();
             await collection.InsertOneAsync(createdBson);
         }
-        public async static Task<ReplaceOneResult> UpsertEntity<T>(IMongoCollection<BsonDocument> collection, T upsertedEntity) where T : MongoEntity
+        public async static Task<ReplaceOneResult> UpsertEntity<TEntity>(IMongoCollection<BsonDocument> collection, TEntity upsertedEntity) where TEntity : MongoEntity
         {
             if (!upsertedEntity.id.IsObjectId())
             {
@@ -66,7 +75,7 @@ namespace teachers_lounge_server.Services
             BsonDocument[] idFilter = { new BsonDocument("$match", new BsonDocument("_id", upsertedEntityId)) };
             BsonDocument[] fullAggregatePipeLine = Utils.Merge(idFilter, idConverterPipeline);
 
-            var entitiesToUpsert = await collection.Aggregate<T>(fullAggregatePipeLine).ToListAsync();
+            var entitiesToUpsert = await collection.Aggregate<TEntity>(fullAggregatePipeLine).ToListAsync();
 
             if (entitiesToUpsert.Count > 1)
             {

@@ -22,7 +22,7 @@ namespace teachers_lounge_server.Controllers
             return Ok(await UserRequestService.GetAllUserRequests());
         }
 
-        [HttpPost(Name = "create user Request")]
+        [HttpPost(Name = "Create user Request")]
         public async Task<ActionResult<string>> UpsertUserRequest([FromBody] UserRequest UserRequest)
         {
             try
@@ -42,6 +42,14 @@ namespace teachers_lounge_server.Controllers
 
                 return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "User creation request wasn't sent", detail: e.Message);
             }
+        }
+
+        [HttpPost("recovery/{govId}", Name = "User Recovery Request")]
+        public async Task<ActionResult> SendUserRecoveryRequest(string govId)
+        {
+            await UserRequestService.SendUserRecoveryRequest(govId);
+
+            return Ok();
         }
 
         [HttpDelete("{UserRequestId}", Name = "Delete UserRequest")]

@@ -10,7 +10,6 @@ namespace teachers_lounge_server.Services
     public class UserRequestService
     {
         private static UserRequestRepository repo => new UserRequestRepository();
-        private static UserRepository acceptedUsersRepository => new UserRepository();
 
         public static bool AreComplexFieldsValid(UserRequest request)
         {
@@ -31,45 +30,51 @@ namespace teachers_lounge_server.Services
             return true;
         }
 
-        private async static Task<bool> doesUserWithGovIdExist(string govId)
+        private async static Task<bool> DoesUserWithGovIdExist(string govId)
         {
-            return await repo.DoesUserWithFieldExist("govId", govId)
-                || await acceptedUsersRepository.DoesUserWithFieldExist("govId", govId);
+            return await repo.DoesUserRequestWithFieldExist("govId", govId)
+                || await UserService.DoesUserWithFieldExist("govId", govId);
         }
 
-        private async static Task<string> doesUserWithEmailExist(string email)
+        private async static Task<string> DoesUserWithEmailExist(string email)
         {
-            if (await repo.DoesUserWithFieldExist("email", email))
+            if (await repo.DoesUserRequestWithFieldExist("email", email))
             {
                 return "קיימת כבר בקשה ליצירת משתמש עם המייל הזה.\nפנו לגורם המאשר כדי שיאשר את הצטרפותכם למערכת.";
             }
 
-            string userStatus = await acceptedUsersRepository.GetUserWithFieldValue("email", email);
-            if (userStatus.Length > 0)
+            List<MiniUser> existingUsers = await UserService.GetUsersByField("email", email);
+
+            if (existingUsers.Count > 0)
             {
-                switch (userStatus)
+                switch (existingUsers[0].activityStatus)
                 {
-                    case "inactive":
+                    case ActivityStatus.Blocked:
                         return "המשתמש המקושר לתיבת המייל הזו הושבת.\nעל מנת לשחזר אותו יש לשלוח בקשה לשחזור משתמש דרך המערכת.";
                     default:
                         return "קיים חשבון פעיל המקושר לתיבת המייל הזאת.\nאם שכחת את סיסמתך, קיים גם מסך \"שכחתי סיסמה\" במערכת.";
                 }
             }
+
             return "";
         }
 
-        private async static Task<bool> doesUserExist(UserRequest request)
+        private async static Task<bool> DoesUserExist(UserRequest request)
         {
-            string userWithEmailMessageEnd = await doesUserWithEmailExist(request.email);
+            string userWithEmailMessageEnd = await DoesUserWithEmailExist(request.email);
 
             if (userWithEmailMessageEnd.Length >= 0)
             {
-                EmailService.SendMailToAddress(request.email, $"זיהינו שניסת להרשם עם כתובת המייל הזאת.\n{userWithEmailMessageEnd}");
+                await EmailService.SendMailToAddress(request.email, $"זיהינו שניסת להרשם עם כתובת המייל הזאת.\n{userWithEmailMessageEnd}");
 
                 return true;
             }
 
-            return await doesUserWithGovIdExist(request.govId);
+            return await DoesUserWithGovIdExist(request.govId);
+        }
+        public static Task<List<UserRequest>> GetUserRequestByField<TValue>(string field, TValue value)
+        {
+            return repo.GetUserRequestByField(field, value);
         }
         private static UserRequest SerializeUserRequest(UserRequest rawRequest)
         {
@@ -100,7 +105,7 @@ namespace teachers_lounge_server.Services
                 return StatusCodes.Status400BadRequest;
             }
 
-            if (await doesUserExist(userRequest))
+            if (await DoesUserExist(userRequest))
             {
                 return StatusCodes.Status200OK;
             }
@@ -108,7 +113,7 @@ namespace teachers_lounge_server.Services
             UserRequest serializedInput = SerializeUserRequest(userRequest);
             await repo.CreateUserRequest(serializedInput);
 
-            string welcomeMessage = $"{userRequest.info.firstName} {userRequest.info.lastName},\n" +
+            string welcomeMessage = $"{userRequest.info.fullName},\n" +
                 $"כמה כיף לראות שפתחת בקשת השתתפות למערכת!\n" +
                 $"הבקשה נקלטה במערכת ותופץ בדקות הקרובות למאשרים הרלוונטיים.\n" +
                 $"כשהבקשה תאושר ישלח מייל לידע אותך שאפשר להתחיל להשתמש במערכת.\n" +
@@ -117,6 +122,44 @@ namespace teachers_lounge_server.Services
             // TODO: send alerts(+mails) to the group of relavent approvers
 
             return StatusCodes.Status200OK;
+        }
+
+        public static async Task SendUserRecoveryRequest(string govId)
+        {
+            var userRequestsWithGovId = await GetUserRequestByField("govId", govId);
+
+            if (userRequestsWithGovId.Count > 0)
+            {
+                var userRequest = userRequestsWithGovId[0];
+                string pendingUserMessage = $"שלום {userRequest.info.fullName}.\n" +
+                    $"שמנו לב שניסית לשלוח בקשת שחזור למערכת.\n" +
+                    $"בקשת שחזור נועדה למשתמשים שנחסמו, שלך עדיין לא אושר אישור ראשוני\n" +
+                    $"אנא פנה לגורמים הרלוונטיים כדי שיאשרו את הרשמתך";
+
+                await EmailService.SendMailToAddress(userRequest.email, pendingUserMessage);
+
+                return;
+            }
+
+            var usersWithGovId = await UserService.GetUsersByField("govId", govId);
+
+            if (usersWithGovId.Count != 1)
+            {
+                // Somethings sus, pretend everything is alright
+                return;
+            }
+
+            var user = usersWithGovId[0];
+
+            string fullName = "there";//TODO: replace with actual fullName when the user class is implemented
+            string messageBody = user.activityStatus == ActivityStatus.Blocked
+                ? "בקשת השחזור שלך נשלחה לגורמים הרלוונטיים"
+                : "שמנו לב שניסית לשלוח בקשת שחזור למרות שהמשתמש שלך פעיל.\n" +
+                  "בשביל מקרים של קשיים בהתחברות למשתמש יצרנו גם דף \"שכחתי סיסמה\" בקישור הבא\n" +
+                  @"https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+            string message = $"שלום {fullName}.\n${messageBody}";
+
+            await EmailService.SendMailToAddress(user.email, message);
         }
 
         public static Task<bool> DeleteUserRequest(string userRequestId)

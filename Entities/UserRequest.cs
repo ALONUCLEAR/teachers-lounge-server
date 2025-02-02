@@ -18,28 +18,22 @@ namespace teachers_lounge_server.Entities
     }
 
     [BsonNoId]
-    public class UserRequest: MongoEntity
+    public class UserRequest: MiniUser
     {
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string id { get; set; }
-        public string govId { get; set; }
-        public string email { get; set; }
         public string password { get; set; }
         public string role { get; set; }
         public UserInfo info { get; set; }
         public string[] associatedSchools { get; set; }
         public string? message { get; set; }
-
-        public UserRequest()
+        private void Init()
         {
-            id = "";
-            govId = "";
-            email = "";
             password = "";
             role = Role.Base;
             info = new UserInfo();
             associatedSchools = new string[0];
         }
+
+        public UserRequest(): base() { Init(); }
 
         public UserRequest(string id, string govId, string email, string password, string role, UserInfo info, string[] associatedIds, string? message)
         {
@@ -51,12 +45,13 @@ namespace teachers_lounge_server.Entities
             this.info = info;
             this.associatedSchools = associatedIds;
             this.message = message;
+            this.activityStatus = ActivityStatus.Pending;
         }
-        public UserRequest(UserRequest userRequest)
+
+        public UserRequest(MiniUser miniUser) : base(miniUser) { Init(); }
+
+        public UserRequest(UserRequest userRequest): base(userRequest)
         {
-            this.id = userRequest.id;
-            this.govId = userRequest.govId;
-            this.email = userRequest.email;
             this.password = userRequest.password;
             this.role = userRequest.role;
             this.info = new UserInfo(userRequest.info);
@@ -68,18 +63,10 @@ namespace teachers_lounge_server.Entities
             }
         }
 
-
-        public BsonDocument ToBsonDocument()
+        public override BsonDocument ToBsonDocument()
         {
-            BsonDocument fullDocument = new BsonDocument();
+            BsonDocument fullDocument = base.ToBsonDocument();
 
-            if (id.IsObjectId())
-            {
-                fullDocument.Add("_id", ObjectId.Parse(id));
-            }
-
-            fullDocument.Add("govId", govId);
-            fullDocument.Add("email", email);
             fullDocument.Add("password", password);
             fullDocument.Add("role", role);
             fullDocument.Add("info", info.ToBsonDocument());
@@ -92,12 +79,33 @@ namespace teachers_lounge_server.Entities
 
             return fullDocument;
         }
+
+        public static new UserRequest FromBsonDocument(BsonDocument document)
+        {
+            UserRequest result = new UserRequest(MiniUser.FromBsonDocument(document));
+
+            result.activityStatus = ActivityStatus.Pending;
+            result.password = document.GetValueOrDefault<string>("password") ?? "";
+            result.role = document.GetValueOrDefault<string>("role") ?? "";
+            result.info = UserInfo.FromBsonDocument(document.GetValue("info").AsBsonDocument);
+            result.associatedSchools = document.GetValue("associatedSchools").AsBsonArray.Select(x => x.AsString).ToArray();
+
+            if (document.Contains("message"))
+            {
+                result.message = document.GetValueOrDefault<string>("message");
+            }
+
+            return result;
+        }
+
     }
 
     public class UserInfo: MongoSerializable
     {
         public string firstName { get; set; }
         public string lastName { get; set; }
+
+        public string fullName => $"{firstName} {lastName}";
 
         public UserInfo()
         {
@@ -125,5 +133,15 @@ namespace teachers_lounge_server.Entities
 
             return fullDocument;
         }
+        public static UserInfo FromBsonDocument(BsonDocument document)
+        {
+            UserInfo result = new UserInfo();
+
+            result.firstName = document.GetValueOrDefault<string>("firstName") ?? "";
+            result.lastName = document.GetValueOrDefault<string>("lastName") ?? "";
+
+            return result;
+        }
+
     }
 }
