@@ -18,6 +18,8 @@ namespace teachers_lounge_server.Entities
     [BsonNoId]
     public class MiniUser : DeserializableMongoEntity<MiniUser>
     {
+        [BsonRepresentation(BsonType.ObjectId)]
+        public new string id { get; set; }
         public string govId { get; set; }
         public string email { get; set; }
         public string activityStatus { get; set; }
