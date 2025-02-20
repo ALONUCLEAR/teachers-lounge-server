@@ -11,6 +11,11 @@ namespace teachers_lounge_server.Services
     {
         private static UserRequestRepository repo => new UserRequestRepository();
 
+        private static List<UserRequest> RemovePassword(List<UserRequest> rawData)
+        {
+            return rawData.Select(request => new UserRequest(request) { password = "How stupid do you think I am?" }).ToList();
+        }
+
         public static bool AreComplexFieldsValid(UserRequest request)
         {
             try
@@ -72,9 +77,9 @@ namespace teachers_lounge_server.Services
 
             return await DoesUserWithGovIdExist(request.govId);
         }
-        public static Task<List<UserRequest>> GetUserRequestByField<TValue>(string field, TValue value)
+        public async static Task<List<UserRequest>> GetUserRequestByField<TValue>(string field, TValue value)
         {
-            return repo.GetUserRequestByField(field, value);
+            return RemovePassword(await repo.GetUserRequestByField(field, value));
         }
         private static UserRequest SerializeUserRequest(UserRequest rawRequest)
         {
@@ -94,9 +99,9 @@ namespace teachers_lounge_server.Services
 
             return serializedRequest;
         }
-        public static Task<List<UserRequest>> GetAllUserRequests()
+        public async static Task<List<UserRequest>> GetAllUserRequests()
         {
-            return repo.GetAllUserRequests();
+            return RemovePassword(await repo.GetAllUserRequests());
         }
         public static async Task<int> CreateUserRequest(UserRequest userRequest)
         {
