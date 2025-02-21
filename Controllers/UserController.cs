@@ -47,7 +47,6 @@ namespace teachers_lounge_server.Controllers
             }
         }
 
-
         [HttpPost("restore/{userId}",  Name = "Reactivate a blocked user")]
         public async Task<ActionResult<string>> UnbanUser(string userId)
         {
@@ -58,7 +57,7 @@ namespace teachers_lounge_server.Controllers
                     return BadRequest($"Invalid ObjectId {userId}");
                 }
 
-                var updateResult = await UserService.RestoreUser(userId);
+                var updateResult = await UserService.ChangeUserStatus(userId, true);
 
                 return Ok($"User with id {userId} restored succesfully");
             }
@@ -69,5 +68,28 @@ namespace teachers_lounge_server.Controllers
                 return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Couldn't restore user", detail: e.Message);
             }
         }
+
+        [HttpPost("block/{userId}", Name = "Block an activer user")]
+        public async Task<ActionResult<string>> BlockUser(string userId)
+        {
+            try
+            {
+                if (!userId.IsObjectId())
+                {
+                    return BadRequest($"Invalid ObjectId {userId}");
+                }
+
+                var updateResult = await UserService.ChangeUserStatus(userId, false);
+
+                return Ok($"User with id {userId} blocked succesfully");
+            }
+            catch (Exception e)
+            {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Couldn't block user", detail: e.Message);
+            }
+        }
+
     }
 }

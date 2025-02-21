@@ -76,14 +76,16 @@ namespace teachers_lounge_server.Services
             return repo.UpdateUserByFields(fieldToCheck, valueToCheck, fieldToUpdate, newValue);
         }
 
-        public static Task<UpdateResult> RestoreUser(string userId)
+        public static Task<UpdateResult> ChangeUserStatus(string userId, bool isActive)
         {
             if (!userId.IsObjectId())
             {
                 throw new InvalidCastException($"The user id {userId} is not a valid object id");
             }
 
-            return UpdateUserByFields("_id", ObjectId.Parse(userId), "activityStatus", ActivityStatus.Active);
+            string newStatus = isActive ? ActivityStatus.Active : ActivityStatus.Blocked;
+
+            return UpdateUserByFields("_id", ObjectId.Parse(userId), "activityStatus", newStatus);
         }
     }
 }
