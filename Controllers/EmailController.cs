@@ -16,6 +16,23 @@ namespace teachers_lounge_server.Controllers
             _logger = logger;
         }
 
+        [HttpPost("to/{emailAddress}", Name = "Send Mail to email address")]
+        public async Task<ActionResult> SendMail(string emailAddress, [FromBody] MailInput mailInput)
+        {
+            try
+            {
+                await EmailService.SendMailToAddress(emailAddress, mailInput);
+
+                return Ok();
+            } catch (Exception mailSendingException)
+            {
+                this._logger.LogError(mailSendingException.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Email wasn't sent", detail: mailSendingException.Message);
+
+            }
+        }
+
         [HttpPost("send-code/to/{emailAddress}", Name = "Send Code")]
         public async Task<ActionResult<string>> SendCode(string emailAddress)
         {
