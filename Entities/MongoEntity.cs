@@ -16,7 +16,7 @@ namespace teachers_lounge_server.Entities
         /// </summary>
         [BsonRepresentation(BsonType.ObjectId)]
         public string id { get; set; }
-        public BsonDocument ToBsonDocument() => new BsonDocument();
+        public virtual BsonDocument ToBsonDocument() => new BsonDocument();
         public static T FromBsonDocument(BsonDocument document) => new T();
     }
 }

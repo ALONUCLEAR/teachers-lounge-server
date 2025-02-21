@@ -23,6 +23,38 @@ namespace teachers_lounge_server
             return null;
         }
 
+        public static T[] Filter<T>(this T[] arr, Predicate<T> predicate)
+        {
+            return arr.FilterAndMap(predicate, x => x);
+        }
+
+        public static TOut[] Map<TIn, TOut>(this TIn[] arr, Func<TIn, TOut> mapper)
+        {
+            TOut[] result = new TOut[arr.Length];
+
+            for(int i = 0; i < arr.Length; i++)
+            {
+                result[i] = mapper(arr[i]);
+            }
+
+            return result;
+        }
+
+        public static TOut[] FilterAndMap<TIn, TOut>(this TIn[] arr, Predicate<TIn> predicate, Func<TIn, TOut> mapper)
+        {
+            List<TOut> result = new List<TOut>();
+
+            foreach(TIn val in arr)
+            {
+                if (predicate(val))
+                {
+                    result.Add(mapper(val));
+                }
+            }
+
+            return result.ToArray();
+        }
+
         public static bool Some<T>(this T[] arr, Predicate<T> predicate)
         {
             foreach (T val in arr)
@@ -141,6 +173,20 @@ namespace teachers_lounge_server
             {
                 return default;
             }
+        }
+        /// <summary>
+        /// For an object array it would still only copy the refrences inside and not the object structure, but the array reference would be different.
+        /// Perfect for primitive array copying.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="originalArray"></param>
+        /// <returns></returns>
+        public static T[] ShallowClone<T>(this T[] originalArray)
+        {
+            T[] clone = new T[originalArray.Length];
+            Array.Copy(originalArray, clone, originalArray.Length);
+
+            return clone;
         }
     }
 }
