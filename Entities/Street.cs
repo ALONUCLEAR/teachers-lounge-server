@@ -10,7 +10,7 @@ namespace teachers_lounge_server.Entities
         {
             this.municipalityFk = municipalityFk;
         }
-
+        public Street(GovernmentData toCopy): base(toCopy) { }
         public Street(Street toCopy) : base(toCopy)
         {
             this.municipalityFk = toCopy.municipalityFk;
@@ -22,6 +22,14 @@ namespace teachers_lounge_server.Entities
             fullDocument.Add("municipalityFk", municipalityFk);
 
             return fullDocument;
+        }
+
+        public static new Street FromBsonDocument(BsonDocument document)
+        {
+            Street result = new Street(GovernmentData.FromBsonDocument(document));
+            result.municipalityFk = document.GetValueOrDefault<int>("municipalityFk");
+
+            return result;
         }
     }
 }

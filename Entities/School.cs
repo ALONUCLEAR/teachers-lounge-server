@@ -4,10 +4,10 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace teachers_lounge_server.Entities
 {
     [BsonNoId]
-    public class School : MongoEntity
+    public class School : DeserializableMongoEntity<School>
     {
         [BsonRepresentation(BsonType.ObjectId)]
-        public string id { get; set; }
+        public new string id { get; set; }
         public string name { get; set; }
         public GovernmentData municipality { get; set; }
         public Address address { get; set; }
@@ -25,9 +25,9 @@ namespace teachers_lounge_server.Entities
             this.municipality = new GovernmentData(municipality);
             this.address = new Address(address);
         }
-        public BsonDocument ToBsonDocument()
+        public new BsonDocument ToBsonDocument()
         {
-            var fullDocument = new BsonDocument();
+            BsonDocument fullDocument = new BsonDocument();
 
             if (id.IsObjectId())
             {
@@ -40,6 +40,19 @@ namespace teachers_lounge_server.Entities
 
             return fullDocument;
         }
+
+        public static new School FromBsonDocument(BsonDocument document)
+        {
+            School result = new School();
+
+            result.id = document.GetValueOrDefault<ObjectId>("_id").ToString();
+            result.name = document.GetValueOrDefault<string>("name") ?? "";
+            result.municipality = GovernmentData.FromBsonDocument(document.GetValue("municipality").AsBsonDocument);
+            result.address = Address.FromBsonDocument(document.GetValue("address").AsBsonDocument);
+
+            return result;
+        }
+
     }
 
     public class Address : MongoSerializable
@@ -61,11 +74,21 @@ namespace teachers_lounge_server.Entities
 
         public BsonDocument ToBsonDocument()
         {
-            var fullDocument = new BsonDocument();
+            BsonDocument fullDocument = new BsonDocument();
             fullDocument.Add("street", street.ToBsonDocument());
             fullDocument.Add("houseNumber", houseNumber);
 
             return fullDocument;
         }
+        public static Address FromBsonDocument(BsonDocument document)
+        {
+            Address result = new Address();
+
+            result.street = Street.FromBsonDocument(document.GetValue("street").AsBsonDocument);
+            result.houseNumber = document.GetValueOrDefault<int>("houseNumber");
+
+            return result;
+        }
+
     }
 }
