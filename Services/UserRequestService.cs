@@ -98,12 +98,7 @@ namespace teachers_lounge_server.Services
 
             UserRequest serializedRequest = new UserRequest(rawRequest);
 
-            using (HashAlgorithm sha256 = SHA256.Create())
-            {
-                var passwordBytes = Encoding.UTF8.GetBytes(rawRequest.password);
-                var hashedBytes = sha256.ComputeHash(passwordBytes);
-                serializedRequest.password = BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
-            }
+            serializedRequest.password = rawRequest.password.Hash();
 
             return serializedRequest;
         }

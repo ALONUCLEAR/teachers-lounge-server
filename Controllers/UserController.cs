@@ -91,5 +91,23 @@ namespace teachers_lounge_server.Controllers
             }
         }
 
+        [HttpPost("login", Name="Get user by credentials")]
+        public async Task<ActionResult<User?>> GetUserByCredentials([FromBody] Dictionary<string, string> credentials)
+        {
+            try
+            {
+                string govId = credentials["govId"];
+                string password = credentials["password"];
+
+                return Ok(await UserService.GetUserByCredentials(govId, password));
+            } catch (Exception e)
+            {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Couldn't get user from credentials", detail: e.Message);
+            }
+
+
+        }
     }
 }

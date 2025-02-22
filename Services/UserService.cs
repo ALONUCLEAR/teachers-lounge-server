@@ -87,5 +87,27 @@ namespace teachers_lounge_server.Services
 
             return UpdateUserByFields("_id", ObjectId.Parse(userId), "activityStatus", newStatus);
         }
+
+        public static async Task<User?> GetUserByCredentials(string govId, string password)
+        {
+            List<User> usersByGovId = await repo.GetUsersByField("govId", govId);
+
+            if (usersByGovId.Count != 1)
+            {
+                return null;
+            }
+
+            User found = usersByGovId[0];
+            bool doPasswordsMatch = password.Hash().Equals(found.password);
+
+            if (!doPasswordsMatch)
+            {
+                return null;
+            }
+
+            found.password = "";
+
+            return found;
+        }
     }
 }
