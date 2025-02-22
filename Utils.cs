@@ -1,4 +1,7 @@
-﻿using MongoDB.Bson;
+﻿using Microsoft.AspNetCore.Http.HttpResults;
+using MongoDB.Bson;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace teachers_lounge_server
 {
@@ -187,6 +190,20 @@ namespace teachers_lounge_server
             Array.Copy(originalArray, clone, originalArray.Length);
 
             return clone;
+        }
+
+        public static string Hash(this string password)
+        {
+            string hashedPassword = "";
+
+            using (HashAlgorithm sha256 = SHA256.Create())
+            {
+                var passwordBytes = Encoding.UTF8.GetBytes(password);
+                var hashedBytes = sha256.ComputeHash(passwordBytes);
+                hashedPassword = BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
+            }
+
+            return hashedPassword;
         }
     }
 }
