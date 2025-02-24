@@ -19,6 +19,16 @@ namespace teachers_lounge_server.Repositories
             return MongoService.GetEntitiesByFieldValueIn(Collection, field, values, User.FromBsonDocument);
         }
 
+        public Task<List<User>> GetUsersByMultipleFilters(IEnumerable<FilterDefinition<BsonDocument>> filterList)
+        {
+            return MongoService.GetEntitiesByMultipleFilters(Collection, filterList, User.FromBsonDocument);
+        }
+
+        public Task<List<User>> GetUsersByFilter(FilterDefinition<BsonDocument> filter)
+        {
+            return MongoService.GetEntitiesByFilter(Collection, filter, User.FromBsonDocument);
+        }
+
         public Task<bool> DoesUserWithFieldExist<TValue>(string field, TValue value)
         {
             return MongoService.DoesEntityWithFieldExist(Collection, field, value);

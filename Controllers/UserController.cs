@@ -19,7 +19,12 @@ namespace teachers_lounge_server.Controllers
         [HttpGet("active/{areActive}", Name = "Get all active/blocked users")]
         public async Task<ActionResult<List<User>>> GetAllUsersByStatus(bool areActive)
         {
-            return await UserService.GetUsersByField("activityStatus", areActive ? ActivityStatus.Active : ActivityStatus.Blocked);
+            if (!Request.Headers.TryGetValue("userId", out var userId))
+            {
+                return BadRequest("userId header is missing");
+            }
+
+            return await UserService.GetUsersByStatus(userId, areActive ? ActivityStatus.Active : ActivityStatus.Blocked);
         }
 
         [HttpPost("from-request/{requestId}", Name = "Create user from request id")]
@@ -27,7 +32,17 @@ namespace teachers_lounge_server.Controllers
         {
             try
             {
+                if (!Request.Headers.TryGetValue("userId", out var requestingUserId))
+                {
+                    return BadRequest("userId header is missing");
+                }
+
                 int responseStatus = await UserService.CreateUserFromRequestId(requestId);
+
+                if (!await UserService.CanRequestAffectUser(requestingUserId, requestId))
+                {
+                    return Unauthorized($"You do not have permissions to accept the request {requestId}");
+                }
 
                 switch (responseStatus)
                 {
@@ -52,9 +67,19 @@ namespace teachers_lounge_server.Controllers
         {
             try
             {
+                if (!Request.Headers.TryGetValue("userId", out var requestingUserId))
+                {
+                    return BadRequest("userId header is missing");
+                }
+
                 if (!userId.IsObjectId())
                 {
                     return BadRequest($"Invalid ObjectId {userId}");
+                }
+
+                if (!await UserService.CanRequestAffectUser(requestingUserId, userId))
+                {
+                    return Unauthorized($"You do not have permissions to unban user {userId}");
                 }
 
                 var updateResult = await UserService.ChangeUserStatus(userId, true);
@@ -74,9 +99,19 @@ namespace teachers_lounge_server.Controllers
         {
             try
             {
+                if (!Request.Headers.TryGetValue("userId", out var requestingUserId))
+                {
+                    return BadRequest("userId header is missing");
+                }
+
                 if (!userId.IsObjectId())
                 {
                     return BadRequest($"Invalid ObjectId {userId}");
+                }
+
+                if (!await UserService.CanRequestAffectUser(requestingUserId, userId))
+                {
+                    return Unauthorized($"You do not have permissions to ban user {userId}");
                 }
 
                 var updateResult = await UserService.ChangeUserStatus(userId, false);

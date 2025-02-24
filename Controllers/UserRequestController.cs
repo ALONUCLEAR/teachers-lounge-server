@@ -19,7 +19,12 @@ namespace teachers_lounge_server.Controllers
         [HttpGet(Name = "All user requests")]
         public async Task<ActionResult<IEnumerable<UserRequest>>> GetAllUserRequests()
         {
-            return Ok(await UserRequestService.GetAllUserRequests());
+            if (!Request.Headers.TryGetValue("userId", out var userId))
+            {
+                return BadRequest("userId header is missing");
+            }
+
+            return Ok(await UserRequestService.GetAllRelevantUserRequests(userId));
         }
 
         [HttpPost(Name = "Create user Request")]
@@ -52,10 +57,20 @@ namespace teachers_lounge_server.Controllers
             return Ok();
         }
 
-        [HttpDelete("{UserRequestId}", Name = "Delete UserRequest")]
-        public async Task<ActionResult<bool>> DeleteUserRequest(string UserRequestId)
+        [HttpDelete("{requestId}", Name = "Delete UserRequest")]
+        public async Task<ActionResult<bool>> DeleteUserRequest(string requestId)
         {
-            return Ok(await UserRequestService.DeleteUserRequest(UserRequestId));
+            if (!Request.Headers.TryGetValue("userId", out var requestingUserId))
+            {
+                return BadRequest("userId header is missing");
+            }
+
+            if (!await UserService.CanRequestAffectUser(requestingUserId, requestId))
+            {
+                return Unauthorized($"You do not have permissions to deny the request {requestId}");
+            }
+
+            return Ok(await UserRequestService.DeleteUserRequest(requestId));
         }
     }
 }
