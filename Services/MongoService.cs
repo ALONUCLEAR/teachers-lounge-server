@@ -42,6 +42,17 @@ namespace teachers_lounge_server.Services
             return await collection.Aggregate<T>(idConverterPipeline).ToListAsync();
         }
 
+        public async static Task<List<TValue>> GetExistingValues<TValue>(IMongoCollection<BsonDocument> collection, string field, TValue[] values, Func<BsonDocument, TValue> deserializer)
+        {
+            var filter = Builders<BsonDocument>.Filter.In(field, values);
+            var projection = Builders<BsonDocument>.Projection.Include(field);
+
+            var documents = await collection.Find(filter).Project(projection).ToListAsync();
+            var existingValues = documents.Select(deserializer).ToList();
+
+            return existingValues;
+        }
+
         public async static Task<bool> DoesEntityWithFieldExist<TValue>(IMongoCollection<BsonDocument> collection, string field, TValue value)
         {
             var filter = Builders<BsonDocument>.Filter.Eq(field, value);
@@ -56,6 +67,14 @@ namespace teachers_lounge_server.Services
             var filteredEntites = await collection.Find(filter).ToListAsync();
 
             return filteredEntites.Select(entity => deserializer(entity)).ToList();
+        }
+
+        public async static Task<List<TEntity>> GetEntitiesByFieldValueIn<TEntity, TValue>(IMongoCollection<BsonDocument> collection, string field, TValue[] values, Func<BsonDocument, TEntity> deserializer) where TEntity : MongoEntity
+        {
+            var filter = Builders<BsonDocument>.Filter.In(field, values);
+            var filteredEntites = await collection.Find(filter).ToListAsync();
+
+            return filteredEntites.Select(deserializer).ToList();
         }
 
         public async static Task CreateEntity<TEntity>(IMongoCollection<BsonDocument> collection, TEntity entityToCreate) where TEntity : MongoEntity
@@ -91,12 +110,24 @@ namespace teachers_lounge_server.Services
             return upsertResult;
         }
 
+        public async static Task<UpdateResult> UpdateEntitiesByField<TEntity, TFieldValue, TNewValue>(
+            IMongoCollection<BsonDocument> collection, string fieldToCheck, TFieldValue valueToCheck,
+            string fieldToUpdate, TNewValue updateValue, Func<BsonDocument, TEntity> deserializer) where TEntity : MongoEntity
+        {
+            var filter = Builders<BsonDocument>.Filter.Eq(fieldToCheck, valueToCheck);
+            var update = Builders<BsonDocument>.Update.Set(fieldToUpdate, updateValue);
+
+            return await collection.UpdateManyAsync(filter, update);
+        }
+
+
         public async static Task<bool> DeleteEntity(IMongoCollection<BsonDocument> collection, string entityId)
         {
             if (!entityId.IsObjectId())
             {
                 return false;
             }
+
             var filter = Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(entityId));
             await collection.DeleteOneAsync(filter);
 

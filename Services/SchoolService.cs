@@ -13,6 +13,11 @@ namespace teachers_lounge_server.Services
         {
             return repo.GetAllSchools();
         }
+
+        public static Task<List<ObjectId>> GetExistingSchoolIds(string[] schoolIds)
+        {
+            return repo.GetExistingSchoolIds(schoolIds);
+        }
         public static Task<ReplaceOneResult> UpsertSchool(School school)
         {
             return repo.UpsertSchool(school);

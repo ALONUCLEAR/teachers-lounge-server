@@ -1,4 +1,5 @@
-﻿using MongoDB.Driver;
+﻿using MongoDB.Bson;
+using MongoDB.Driver;
 using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
@@ -41,14 +42,14 @@ namespace teachers_lounge_server.Services
                 || await UserService.DoesUserWithFieldExist("govId", govId);
         }
 
-        private async static Task<string> DoesUserWithEmailExist(string email)
+        private async static Task<string> GetEmailTextBasedOnUserStatus(string email)
         {
             if (await repo.DoesUserRequestWithFieldExist("email", email))
             {
                 return "קיימת כבר בקשה ליצירת משתמש עם המייל הזה.\nפנו לגורם המאשר כדי שיאשר את הצטרפותכם למערכת.";
             }
 
-            List<MiniUser> existingUsers = await UserService.GetUsersByField("email", email);
+            List<User> existingUsers = await UserService.GetUsersByField("email", email);
 
             if (existingUsers.Count > 0)
             {
@@ -64,18 +65,25 @@ namespace teachers_lounge_server.Services
             return "";
         }
 
-        private async static Task<bool> DoesUserExist(UserRequest request)
+        private async static Task<bool> DoesUserExist(UserRequest request, bool sendMailIfUserExists = true)
         {
-            string userWithEmailMessageEnd = await DoesUserWithEmailExist(request.email);
+            string userWithEmailMessageEnd = await GetEmailTextBasedOnUserStatus(request.email);
 
-            if (userWithEmailMessageEnd.Length >= 0)
+            if (userWithEmailMessageEnd.Length > 0)
             {
-                await EmailService.SendMailToAddress(request.email, $"זיהינו שניסת להרשם עם כתובת המייל הזאת.\n{userWithEmailMessageEnd}");
+                if (sendMailIfUserExists)
+                {
+                    await EmailService.SendMailToAddress(request.email, "נסיון הרשמה - מערכת חדר מורים", $"זיהינו שניסת להרשם עם כתובת המייל הזאת.\n{userWithEmailMessageEnd}");
+                }
 
                 return true;
             }
 
             return await DoesUserWithGovIdExist(request.govId);
+        }
+        public async static Task<UserRequest> GetFullUserRequestById(ObjectId requestId)
+        {
+            return (await repo.GetUserRequestByField("_id", requestId))[0];
         }
         public async static Task<List<UserRequest>> GetUserRequestByField<TValue>(string field, TValue value)
         {
@@ -90,12 +98,7 @@ namespace teachers_lounge_server.Services
 
             UserRequest serializedRequest = new UserRequest(rawRequest);
 
-            using (HashAlgorithm sha256 = SHA256.Create())
-            {
-                var passwordBytes = Encoding.UTF8.GetBytes(rawRequest.password);
-                var hashedBytes = sha256.ComputeHash(passwordBytes);
-                serializedRequest.password = BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
-            }
+            serializedRequest.password = rawRequest.password.Hash();
 
             return serializedRequest;
         }
@@ -123,7 +126,7 @@ namespace teachers_lounge_server.Services
                 $"הבקשה נקלטה במערכת ותופץ בדקות הקרובות למאשרים הרלוונטיים.\n" +
                 $"כשהבקשה תאושר ישלח מייל לידע אותך שאפשר להתחיל להשתמש במערכת.\n" +
                 $"שיהיה לך יום קסום!";
-            await EmailService.SendMailToAddress(serializedInput.email, welcomeMessage);
+            await EmailService.SendMailToAddress(serializedInput.email, "בקשת יצירת משתמש", welcomeMessage);
             // TODO: send alerts(+mails) to the group of relavent approvers
 
             return StatusCodes.Status200OK;
@@ -132,16 +135,17 @@ namespace teachers_lounge_server.Services
         public static async Task SendUserRecoveryRequest(string govId)
         {
             var userRequestsWithGovId = await GetUserRequestByField("govId", govId);
+            string mailTitle = "בקשת שחזור משתמש";
 
             if (userRequestsWithGovId.Count > 0)
             {
                 var userRequest = userRequestsWithGovId[0];
                 string pendingUserMessage = $"שלום {userRequest.info.fullName}.\n" +
                     $"שמנו לב שניסית לשלוח בקשת שחזור למערכת.\n" +
-                    $"בקשת שחזור נועדה למשתמשים שנחסמו, שלך עדיין לא אושר אישור ראשוני\n" +
+                    $"בקשת שחזור נועדה למשתמשים שנחסמו. שלך עדיין לא אושר אישור ראשוני\n" +
                     $"אנא פנה לגורמים הרלוונטיים כדי שיאשרו את הרשמתך";
 
-                await EmailService.SendMailToAddress(userRequest.email, pendingUserMessage);
+                await EmailService.SendMailToAddress(userRequest.email, mailTitle, pendingUserMessage);
 
                 return;
             }
@@ -164,7 +168,7 @@ namespace teachers_lounge_server.Services
                   @"https://www.youtube.com/watch?v=dQw4w9WgXcQ";
             string message = $"שלום {fullName}.\n${messageBody}";
 
-            await EmailService.SendMailToAddress(user.email, message);
+            await EmailService.SendMailToAddress(user.email, mailTitle, message);
         }
 
         public static Task<bool> DeleteUserRequest(string userRequestId)
