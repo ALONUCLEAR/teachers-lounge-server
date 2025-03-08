@@ -8,20 +8,17 @@ namespace teachers_lounge_server.Entities
     {
         public int id { get; set; }
         public string name { get; set; }
-        public int fk { get; set; }
         public GovernmentData() { name = ""; }
-        public GovernmentData(int id, string name, int fk)
+        public GovernmentData(int id, string name)
         {
             this.id = id;
             this.name = name;
-            this.fk = fk;
         }
 
         public GovernmentData(GovernmentData toCopy)
         {
             this.id = toCopy.id;
             this.name = toCopy.name;
-            this.fk = toCopy.fk;
         }
 
         public virtual BsonDocument ToBsonDocument()
@@ -29,7 +26,6 @@ namespace teachers_lounge_server.Entities
             var fullDocument = new BsonDocument();
             fullDocument.Add("id", id);
             fullDocument.Add("name", name);
-            fullDocument.Add("fk", fk);
 
             return fullDocument;
         }
@@ -40,7 +36,6 @@ namespace teachers_lounge_server.Entities
 
             result.id = document.GetValue("id").AsInt32;
             result.name = document.GetValue("name").AsString;
-            result.fk = document.GetValue("fk").AsInt32;
 
             return result;
         }
