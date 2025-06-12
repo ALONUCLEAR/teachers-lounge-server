@@ -25,12 +25,32 @@ namespace teachers_lounge_server.Controllers
         [HttpPost("upsert", Name = "Upsert school")]
         public async Task<ActionResult<ReplaceOneResult>> UpsertSchool([FromBody] School school)
         {
+            if (!Request.Headers.TryGetValue("userId", out var userId))
+            {
+                return BadRequest("userId header is missing");
+            }
+
+            if (!await UserService.HasPermissions(userId, Role.SuperAdmin))
+            {
+                return Unauthorized($"You do not have permissions to upsert the school {school.name}");
+            }
+
             return Ok(await SchoolService.UpsertSchool(school));
         }
 
         [HttpDelete("{schoolId}", Name = "Delete school")]
         public async Task<ActionResult<bool>> DeleteSchool(string schoolId)
         {
+            if (!Request.Headers.TryGetValue("userId", out var userId))
+            {
+                return BadRequest("userId header is missing");
+            }
+
+            if (!await UserService.HasPermissions(userId, Role.SuperAdmin))
+            {
+                return Unauthorized($"You do not have permissions to delete the school {schoolId}");
+            }
+
             return Ok(await SchoolService.DeleteSchool(schoolId));
         }
     }

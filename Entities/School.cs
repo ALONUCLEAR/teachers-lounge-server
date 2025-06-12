@@ -7,7 +7,7 @@ namespace teachers_lounge_server.Entities
     public class School : DeserializableMongoEntity<School>
     {
         [BsonRepresentation(BsonType.ObjectId)]
-        public new string id { get; set; }
+        public override string id { get; set; }
         public string name { get; set; }
         public GovernmentData municipality { get; set; }
         public Address address { get; set; }
@@ -25,7 +25,7 @@ namespace teachers_lounge_server.Entities
             this.municipality = new GovernmentData(municipality);
             this.address = new Address(address);
         }
-        public new BsonDocument ToBsonDocument()
+        public override BsonDocument ToBsonDocument()
         {
             BsonDocument fullDocument = new BsonDocument();
 

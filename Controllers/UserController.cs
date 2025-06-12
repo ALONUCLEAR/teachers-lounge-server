@@ -77,7 +77,7 @@ namespace teachers_lounge_server.Controllers
                     return BadRequest($"Invalid ObjectId {userId}");
                 }
 
-                if (!await UserService.CanRequestAffectUser(requestingUserId, userId))
+                if (!await UserService.CanRequestAffectUser(requestingUserId, userId, ActivityStatus.Blocked))
                 {
                     return Unauthorized($"You do not have permissions to unban user {userId}");
                 }

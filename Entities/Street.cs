@@ -4,7 +4,7 @@ namespace teachers_lounge_server.Entities
 {
     public class Street : GovernmentData
     {
-        public int municipalityId;
+        public int municipalityId { get; set; }
         public Street() : base() { }
         public Street(int id, string name, int municipalityId) : base(id, name)
         {

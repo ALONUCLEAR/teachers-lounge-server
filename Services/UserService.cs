@@ -75,6 +75,17 @@ namespace teachers_lounge_server.Services
             return RemovePassword(await repo.GetUsersByField(field, value));
         }
 
+        public async static Task<User?> GetUserById(string? userId)
+        {
+            if (userId == null)
+            {
+                return null;
+            }
+
+            var usersWithId = await GetUsersByField("_id", ObjectId.Parse(userId));
+
+            return usersWithId.Count == 1 ? usersWithId[0] : null;
+        }
         public async static Task<int> CreateUserFromRequestId(string requestId)
         {
             if (requestId == null || !requestId.IsObjectId())
@@ -126,11 +137,11 @@ namespace teachers_lounge_server.Services
             return repo.UpdateUserByFields(fieldToCheck, valueToCheck, fieldToUpdate, newValue);
         }
 
-        public async static Task<bool> CanRequestAffectUser(string? requestingUserId, string targetUserId)
+        public async static Task<bool> CanRequestAffectUser(string? requestingUserId, string targetUserId, string targetStatus = ActivityStatus.Active)
         {
             List<User> targetUsers = await GetUsersByField("_id", ObjectId.Parse(targetUserId));
 
-            if (targetUsers.Count != 1)
+            if (targetUsers.Count != 1 || targetUsers[0].activityStatus != targetStatus)
             {
                 return false;
             }
@@ -139,6 +150,25 @@ namespace teachers_lounge_server.Services
             string targetRole = targetUsers[0].role;
 
             return roles.Some(role => role == targetRole);
+        }
+
+        public static async Task<bool> HasPermissions(string? userId, string? requiredRole)
+        {
+            if (requiredRole == null)
+            {
+                return true;
+            }
+
+            var user = await GetUserById(userId);
+
+            if (user == null || user.activityStatus != ActivityStatus.Active)
+            {
+                return false;
+            }
+
+            string[] lesserRoles = GetRelevantRoles(user.role);
+
+            return requiredRole == user.role || lesserRoles.Some(role => role == requiredRole);
         }
 
         public static Task<UpdateResult> ChangeUserStatus(string userId, bool isActive)

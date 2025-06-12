@@ -118,7 +118,7 @@ namespace teachers_lounge_server.Services
             BsonDocument[] idFilter = { new BsonDocument("$match", new BsonDocument("_id", upsertedEntityId)) };
             BsonDocument[] fullAggregatePipeLine = Utils.Merge(idFilter, idConverterPipeline);
 
-            var entitiesToUpsert = await collection.Aggregate<TEntity>(fullAggregatePipeLine).ToListAsync();
+            var entitiesToUpsert = await collection.Aggregate<BsonDocument>(fullAggregatePipeLine).ToListAsync();
 
             if (entitiesToUpsert.Count > 1)
             {
