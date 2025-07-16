@@ -204,5 +204,15 @@ namespace teachers_lounge_server.Services
 
             return found;
         }
+
+        public static async Task<IEnumerable<User>> GetUsersBySchool(ObjectId schoolId)
+        {
+            var filterLists = new List<FilterDefinition<BsonDocument>>();
+            filterLists.Add(Builders<BsonDocument>.Filter.AnyEq("associatedSchools", schoolId));
+            filterLists.Add(Builders<BsonDocument>.Filter.Eq("activityStatus", ActivityStatus.Active));
+            List<User> usersBySchoolId = await repo.GetUsersByMultipleFilters(filterLists);
+
+            return RemovePassword(usersBySchoolId);
+        }
     }
 }
