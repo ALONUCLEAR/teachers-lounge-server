@@ -30,6 +30,23 @@ namespace teachers_lounge_server.Services
             return await repo.GetAssociationsByMultipleFilters(filterList);
         }
 
+        public async static Task<bool> IsAssociationValid(Association association)
+        {
+            var filterList = new List<FilterDefinition<BsonDocument>>();
+            filterList.Add(Builders<BsonDocument>.Filter.In("associatedSchools", association.associatedSchools.Map(ObjectId.Parse)));
+            filterList.Add(Builders<BsonDocument>.Filter.Eq("type", association.type));
+            filterList.Add(Builders<BsonDocument>.Filter.Eq("name", association.name));
+
+            if (association.id.IsObjectId())
+            {
+                filterList.Add(Builders<BsonDocument>.Filter.Ne("_id", ObjectId.Parse(association.id)));
+            }
+
+            var associations = await repo.GetAssociationsByMultipleFilters(filterList);
+
+            return associations.Count == 0;
+        }
+
         public static async Task<bool> CanUserAffectAssociation(string? userId, Association association)
         {
             var user = await UserService.GetUserById(userId);

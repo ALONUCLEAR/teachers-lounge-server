@@ -23,11 +23,18 @@ namespace teachers_lounge_server.Controllers
             return Ok(await AssociationService.GetAllAssociations());
         }
 
-        [HttpGet("type/{typeName}/from/{schoolId}", Name = "All associations of given type")]
+        [HttpGet("type/{typeName}/from/{schoolId}", Name = "All associations of given type in this school")]
         [UserIdValidator]
         public async Task<ActionResult<IEnumerable<Association>>> GetAllAssociationsOfType(string typeName, string schoolId)
         {
             return Ok(await AssociationService.GetAssociationsByTypenameAndSchool(typeName, schoolId));
+        }
+
+        [HttpPost("is-valid", Name = "Check an association's validity before upsert, exported logic for client")]
+        [UserIdValidator]
+        public async Task<ActionResult<bool>> GetAllAssociationsOfTypeFromSchools([FromBody] Association association)
+        {
+            return Ok(await AssociationService.IsAssociationValid(association));
         }
 
         [HttpPost(Name = "Upsert association")]
@@ -40,12 +47,18 @@ namespace teachers_lounge_server.Controllers
 
             // If it's an updated association, a user should be able to update an association to not be tied to his school
             // leading to a situation where if you check by the association fromBody he won't be authorized because the association is no longer linked to the school
-            bool isAuthorized = association.id == null
+            bool isAuthorized = association.id == ""
                 ? await AssociationService.CanUserAffectAssociation(userId, association)
                 : await AssociationService.CanUserAffectAssociation(userId, association.id);
             if (!isAuthorized)
             {
                 return Unauthorized($"You do not have permissions to upsert the association {association.name}");
+            }
+
+            if (!await AssociationService.IsAssociationValid(association))
+            {
+                var allSchools = association.associatedSchools.Join(", ");
+                return BadRequest($"An {association.type} with the name {association.name} already exists in one of these schools [{allSchools}]");
             }
 
             return Ok(await AssociationService.UpsertAssociation(userId!, association));

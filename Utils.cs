@@ -205,5 +205,28 @@ namespace teachers_lounge_server
 
             return hashedPassword;
         }
+        public static string Join<T>(this IEnumerable<T> lst, string delimeter) where T: notnull
+        {
+            string joinedString = lst.ElementAt(0).ToString() ?? "";
+
+            for (int i = 1; i < lst.Count(); i++)
+            {
+                joinedString += delimeter + lst.ElementAt(i).ToString();
+            }
+
+            return joinedString;
+        }
+
+        public static string Join<T>(this T[] arr, string delimeter) where T: notnull
+        {
+            string joinedString = arr[0].ToString() ?? "";
+
+            for (int i = 1; i < arr.Length; i++)
+            {
+                joinedString += delimeter + arr[i].ToString();
+            }
+
+            return joinedString;
+        }
     }
 }
