@@ -137,9 +137,27 @@ namespace teachers_lounge_server.Services
             return repo.UpdateUserByFields(fieldToCheck, valueToCheck, fieldToUpdate, newValue);
         }
 
+        public static Task<UpdateResult> UnlinkSchool(string targetUserId, string schoolId)
+        {
+            return repo.UnlinkSchool(ObjectId.Parse(targetUserId), ObjectId.Parse(schoolId));
+        }
+
+        public static Task<UpdateResult> LinkSchool(string[] targetUserIds, string schoolId)
+        {
+            return repo.LinkSchool(targetUserIds.Map(ObjectId.Parse), ObjectId.Parse(schoolId));
+        }
+
         public async static Task<bool> CanRequestAffectUser(string? requestingUserId, string targetUserId, string targetStatus = ActivityStatus.Active)
         {
-            List<User> targetUsers = await GetUsersByField("_id", ObjectId.Parse(targetUserId));
+            List<User> targetUsers = new();
+
+            if (targetStatus == ActivityStatus.Pending)
+            {
+                targetUsers.Add(new User(await UserRequestService.GetFullUserRequestById(ObjectId.Parse(targetUserId))));
+            } else
+            {
+                targetUsers.AddRange(await GetUsersByField("_id", ObjectId.Parse(targetUserId)));
+            }
 
             if (targetUsers.Count != 1 || targetUsers[0].activityStatus != targetStatus)
             {

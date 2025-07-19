@@ -43,6 +43,18 @@ namespace teachers_lounge_server
             return result;
         }
 
+        public static List<TOut> Map<TIn, TOut>(this IEnumerable<TIn> lst, Func<TIn, TOut> mapper)
+        {
+            List<TOut> result = new();
+
+            foreach(var el in lst)
+            {
+                result.Add(mapper(el));
+            }
+
+            return result;
+        }
+
         public static TOut[] FilterAndMap<TIn, TOut>(this TIn[] arr, Predicate<TIn> predicate, Func<TIn, TOut> mapper)
         {
             List<TOut> result = new List<TOut>();

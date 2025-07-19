@@ -62,6 +62,22 @@ namespace teachers_lounge_server.Repositories
             return MongoService.UpdateEntitiesByField(Collection, fieldToCheck, valueToCheck, fieldToUpdate, newValue, User.FromBsonDocument);
         }
 
+        public Task<UpdateResult> UnlinkSchool(ObjectId userId, ObjectId schoolToUnlink)
+        {
+            var filter = Builders<BsonDocument>.Filter.Eq("_id", userId);
+            var update = Builders<BsonDocument>.Update.Pull("associatedSchools", schoolToUnlink);
+
+            return Collection.UpdateOneAsync(filter, update);
+        }
+
+        public Task<UpdateResult> LinkSchool(ObjectId[] userIds, ObjectId schoolToLink)
+        {
+            var filter = Builders<BsonDocument>.Filter.In("_id", userIds);
+            var update = Builders<BsonDocument>.Update.AddToSet("associatedSchools", schoolToLink);
+
+            return Collection.UpdateManyAsync(filter, update);
+        }
+
         public Task<bool> DeleteUser(string UserId)
         {
             return MongoService.DeleteEntity(Collection, UserId);
