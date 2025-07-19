@@ -43,6 +43,18 @@ namespace teachers_lounge_server
             return result;
         }
 
+        public static List<TOut> Map<TIn, TOut>(this IEnumerable<TIn> lst, Func<TIn, TOut> mapper)
+        {
+            List<TOut> result = new();
+
+            foreach(var el in lst)
+            {
+                result.Add(mapper(el));
+            }
+
+            return result;
+        }
+
         public static TOut[] FilterAndMap<TIn, TOut>(this TIn[] arr, Predicate<TIn> predicate, Func<TIn, TOut> mapper)
         {
             List<TOut> result = new List<TOut>();
@@ -204,6 +216,29 @@ namespace teachers_lounge_server
             }
 
             return hashedPassword;
+        }
+        public static string Join<T>(this IEnumerable<T> lst, string delimeter) where T: notnull
+        {
+            string joinedString = lst.ElementAt(0).ToString() ?? "";
+
+            for (int i = 1; i < lst.Count(); i++)
+            {
+                joinedString += delimeter + lst.ElementAt(i).ToString();
+            }
+
+            return joinedString;
+        }
+
+        public static string Join<T>(this T[] arr, string delimeter) where T: notnull
+        {
+            string joinedString = arr[0].ToString() ?? "";
+
+            for (int i = 1; i < arr.Length; i++)
+            {
+                joinedString += delimeter + arr[i].ToString();
+            }
+
+            return joinedString;
         }
     }
 }

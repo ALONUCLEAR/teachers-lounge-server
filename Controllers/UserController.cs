@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using teachers_lounge_server.Entities;
 using teachers_lounge_server.Services;
@@ -19,7 +20,12 @@ namespace teachers_lounge_server.Controllers
         [HttpGet("active/{areActive}", Name = "Get all active/blocked users")]
         public async Task<ActionResult<List<User>>> GetAllUsersByStatus(bool areActive)
         {
-            return await UserService.GetUsersByField("activityStatus", areActive ? ActivityStatus.Active : ActivityStatus.Blocked);
+            if (!Request.Headers.TryGetValue("userId", out var userId))
+            {
+                return BadRequest("userId header is missing");
+            }
+
+            return await UserService.GetUsersByStatus(userId, areActive ? ActivityStatus.Active : ActivityStatus.Blocked);
         }
 
         [HttpPost("from-request/{requestId}", Name = "Create user from request id")]
@@ -27,6 +33,16 @@ namespace teachers_lounge_server.Controllers
         {
             try
             {
+                if (!Request.Headers.TryGetValue("userId", out var requestingUserId))
+                {
+                    return BadRequest("userId header is missing");
+                }
+
+                if (!await UserService.CanRequestAffectUser(requestingUserId, requestId, ActivityStatus.Pending))
+                {
+                    return Unauthorized($"You do not have permissions to accept the request {requestId}");
+                }
+
                 int responseStatus = await UserService.CreateUserFromRequestId(requestId);
 
                 switch (responseStatus)
@@ -52,9 +68,19 @@ namespace teachers_lounge_server.Controllers
         {
             try
             {
+                if (!Request.Headers.TryGetValue("userId", out var requestingUserId))
+                {
+                    return BadRequest("userId header is missing");
+                }
+
                 if (!userId.IsObjectId())
                 {
                     return BadRequest($"Invalid ObjectId {userId}");
+                }
+
+                if (!await UserService.CanRequestAffectUser(requestingUserId, userId, ActivityStatus.Blocked))
+                {
+                    return Unauthorized($"You do not have permissions to unban user {userId}");
                 }
 
                 var updateResult = await UserService.ChangeUserStatus(userId, true);
@@ -74,9 +100,19 @@ namespace teachers_lounge_server.Controllers
         {
             try
             {
+                if (!Request.Headers.TryGetValue("userId", out var requestingUserId))
+                {
+                    return BadRequest("userId header is missing");
+                }
+
                 if (!userId.IsObjectId())
                 {
                     return BadRequest($"Invalid ObjectId {userId}");
+                }
+
+                if (!await UserService.CanRequestAffectUser(requestingUserId, userId))
+                {
+                    return Unauthorized($"You do not have permissions to ban user {userId}");
                 }
 
                 var updateResult = await UserService.ChangeUserStatus(userId, false);
@@ -106,8 +142,95 @@ namespace teachers_lounge_server.Controllers
 
                 return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Couldn't get user from credentials", detail: e.Message);
             }
+        }
 
+        [HttpGet("from-school/{schoolId}", Name = "All active users from said school")]
+        [UserIdValidator]
+        public async Task<ActionResult<IEnumerable<User>>> GetAllAssociationsOfType(string schoolId, [FromQuery] bool includePending = false)
+        {
+            try
+            {
+                if (!schoolId.IsObjectId())
+                {
+                    return BadRequest($"Invalid schoolId {schoolId}. Did not fit the ObjectId format");
+                }
 
+                IEnumerable<User> users = await UserService.GetUsersBySchool(ObjectId.Parse(schoolId));
+
+                if (includePending)
+                {
+                    // no need to check because we already have the UserIdValidator
+                    Request.Headers.TryGetValue("userId", out var userId);
+                    var userRequestsForSchool = await UserRequestService.GetAllRequestsForSchool(userId!, schoolId);
+                    users = users.Concat(userRequestsForSchool);
+                }
+
+                return Ok(users);
+            } catch (Exception e)
+            {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't get users from schoolId {schoolId}", detail: e.Message);
+            }
+        }
+
+        [HttpPost("{targetUserId}/unlink-school/{schoolId}", Name = "Remove the school from the associatedSchools array")]
+        [UserIdValidator]
+        public async Task<ActionResult<UpdateResult>> UnlinkSchool(string targetUserId, string schoolId)
+        {
+            try
+            {
+                if (!targetUserId.IsObjectId())
+                {
+                    return BadRequest($"Invalid targetUserId {targetUserId}. Did not fit the ObjectId format");
+                }
+
+                if (!schoolId.IsObjectId())
+                {
+                    return BadRequest($"Invalid schoolId {schoolId}. Did not fit the ObjectId format");
+                }
+
+                Request.Headers.TryGetValue("userId", out var userId);
+
+                if (!await UserService.CanRequestAffectUser(userId, targetUserId))
+                {
+                    return Unauthorized($"You do not have permissions to unlink the user {targetUserId}");
+                }
+
+                return Ok(await UserService.UnlinkSchool(targetUserId, schoolId));
+            }
+            catch (Exception e)
+            {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't get users from schoolId {schoolId}", detail: e.Message);
+            }
+        }
+
+        [HttpPost("link-school/{schoolId}", Name = "Add the school from the associatedSchools array for all target users")]
+        [UserIdValidator]
+        public async Task<ActionResult<UpdateResult>> LinkSchool(string schoolId, [FromBody] string[] targetUserIds)
+        {
+            try
+            {
+                if (targetUserIds.Some(id => !id.IsObjectId()))
+                {
+                    return BadRequest($"Invalid targetUserId. One of these values [{targetUserIds.Join(", ")}] did not fit the ObjectId format");
+                }
+
+                if (!schoolId.IsObjectId())
+                {
+                    return BadRequest($"Invalid schoolId {schoolId}. Did not fit the ObjectId format");
+                }
+
+                return Ok(await UserService.LinkSchool(targetUserIds, schoolId));
+            }
+            catch (Exception e)
+            {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't get users from schoolId {schoolId}", detail: e.Message);
+            }
         }
     }
 }

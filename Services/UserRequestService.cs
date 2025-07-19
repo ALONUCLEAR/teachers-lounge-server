@@ -81,6 +81,7 @@ namespace teachers_lounge_server.Services
 
             return await DoesUserWithGovIdExist(request.govId);
         }
+
         public async static Task<UserRequest> GetFullUserRequestById(ObjectId requestId)
         {
             return (await repo.GetUserRequestByField("_id", requestId))[0];
@@ -102,9 +103,36 @@ namespace teachers_lounge_server.Services
 
             return serializedRequest;
         }
-        public async static Task<List<UserRequest>> GetAllUserRequests()
+
+        public async static Task<bool> CanUserAffectRequest(string? userId, string requestId)
         {
-            return RemovePassword(await repo.GetAllUserRequests());
+            List<UserRequest> targetUsers = await repo.GetUserRequestByField("_id", ObjectId.Parse(requestId));
+
+            if (targetUsers.Count != 1)
+            {
+                return false;
+            }
+
+            string[] roles = await UserService.GetRelaventRolesByUserId(userId);
+            string targetRole = targetUsers[0].role;
+
+            return roles.Some(role => role == targetRole);
+        }
+
+        public async static Task<List<UserRequest>> GetAllRelevantUserRequests(string? userId)
+        {
+            FilterDefinition<BsonDocument> relavenceFilter = await UserService.GetRoleBasedFilter(userId);
+
+            return RemovePassword(await repo.GetUserReqeuestsByFilter(relavenceFilter));
+        }
+
+        public async static Task<List<User>> GetAllRequestsForSchool(string userId, string schoolId)
+        {
+            List<FilterDefinition<BsonDocument>> relavenceFilters = new();
+            relavenceFilters.Add(await UserService.GetRoleBasedFilter(userId));
+            relavenceFilters.Add(Builders<BsonDocument>.Filter.AnyEq("associatedSchools", schoolId));
+
+            return RemovePassword(await repo.GetUserReqeuestsByMultipleFilters(relavenceFilters)).Map(request => new User(request));
         }
         public static async Task<int> CreateUserRequest(UserRequest userRequest)
         {

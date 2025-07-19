@@ -1,4 +1,6 @@
-﻿using teachers_lounge_server.Entities;
+﻿using MongoDB.Bson;
+using MongoDB.Driver;
+using teachers_lounge_server.Entities;
 using teachers_lounge_server.Services;
 
 namespace teachers_lounge_server.Repositories
@@ -10,6 +12,16 @@ namespace teachers_lounge_server.Repositories
         public Task<List<UserRequest>> GetAllUserRequests()
         {
             return MongoService.GetEntireCollection<UserRequest>(Collection);
+        }
+
+        public Task<List<UserRequest>> GetUserReqeuestsByFilter(FilterDefinition<BsonDocument> filter)
+        {
+            return MongoService.GetEntitiesByFilter(Collection, filter, UserRequest.FromBsonDocument);
+        }
+
+        public Task<List<UserRequest>> GetUserReqeuestsByMultipleFilters(IEnumerable<FilterDefinition<BsonDocument>> filterList)
+        {
+            return MongoService.GetEntitiesByMultipleFilters(Collection, filterList, UserRequest.FromBsonDocument);
         }
 
         public Task<bool> DoesUserRequestWithFieldExist<TValue>(string field, TValue value)
