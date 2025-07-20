@@ -121,7 +121,7 @@ namespace teachers_lounge_server.Controllers
             } catch (Exception e) {
                 this._logger.LogError(e.Message);
 
-                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "No Emilio Sent :()", detail: e.Message);
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Email Was Not Sent :()", detail: e.Message);
             }
         }
 

@@ -122,7 +122,9 @@ namespace teachers_lounge_server.Services
 
         public static async Task<string> getUserIdByGovId(string govId)
         {
-            return (await repo.GetUsersByField("govId", govId))[0].id;
+            var users = await repo.GetUsersByField("govId", govId);
+            
+            return users.Count == 1 ? users[0].id : null;
         }
     }
 }
