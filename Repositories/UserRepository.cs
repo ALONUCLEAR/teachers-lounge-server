@@ -19,6 +19,21 @@ namespace teachers_lounge_server.Repositories
             return MongoService.GetEntitiesByFieldValueIn(Collection, field, values, User.FromBsonDocument);
         }
 
+        public Task<List<User>> GetUsersByFieldContainsValue<TValue>(string field, TValue filterValue)
+        {
+            return MongoService.GetEntitiesByFieldContainsValue(Collection, field, filterValue, User.FromBsonDocument);
+        }
+
+        public Task<List<User>> GetUsersByMultipleFilters(IEnumerable<FilterDefinition<BsonDocument>> filterList)
+        {
+            return MongoService.GetEntitiesByMultipleFilters(Collection, filterList, User.FromBsonDocument);
+        }
+
+        public Task<List<User>> GetUsersByFilter(FilterDefinition<BsonDocument> filter)
+        {
+            return MongoService.GetEntitiesByFilter(Collection, filter, User.FromBsonDocument);
+        }
+
         public Task<bool> DoesUserWithFieldExist<TValue>(string field, TValue value)
         {
             return MongoService.DoesEntityWithFieldExist(Collection, field, value);
@@ -31,12 +46,6 @@ namespace teachers_lounge_server.Repositories
             var allUserSchoolIds = validUser.associatedSchools.ShallowClone();
             var validSchoolIds = await SchoolService.GetExistingSchoolIds(allUserSchoolIds);
             validUser.associatedSchools = validSchoolIds.ToArray().Map(objId => objId.ToString());
-
-            // TODO: when there's an association service, validate stuff here as well.
-            // Until then, no associations for anyone!
-            var allUserAssociations = validUser.associations.ShallowClone();
-            var validAssociations = new List<ObjectId>();
-            validUser.associations = validAssociations.ToArray().Map(objId => objId.ToString());
 
             return validUser;
         }

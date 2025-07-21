@@ -26,13 +26,18 @@ namespace teachers_lounge_server.Entities
         {
             return typeof(Role).GetFields().Some(field => field.Name.Equals(maybRole));
         }
+
+        public static string[] GetAllRoles()
+        {
+            return typeof(Role).GetFields().Map(field => field.Name);
+        }
     }
 
     [BsonNoId]
     public class MiniUser : DeserializableMongoEntity<MiniUser>
     {
         [BsonRepresentation(BsonType.ObjectId)]
-        public new string id { get; set; }
+        public override string id { get; set; }
         public string govId { get; set; }
         public string email { get; set; }
         public string activityStatus { get; set; }

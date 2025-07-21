@@ -102,9 +102,27 @@ namespace teachers_lounge_server.Services
 
             return serializedRequest;
         }
-        public async static Task<List<UserRequest>> GetAllUserRequests()
+
+        public async static Task<bool> CanUserAffectRequest(string? userId, string requestId)
         {
-            return RemovePassword(await repo.GetAllUserRequests());
+            List<UserRequest> targetUsers = await repo.GetUserRequestByField("_id", ObjectId.Parse(requestId));
+
+            if (targetUsers.Count != 1)
+            {
+                return false;
+            }
+
+            string[] roles = await UserService.GetRelaventRolesByUserId(userId);
+            string targetRole = targetUsers[0].role;
+
+            return roles.Some(role => role == targetRole);
+        }
+
+        public async static Task<List<UserRequest>> GetAllRelevantUserRequests(string? userId)
+        {
+            FilterDefinition<BsonDocument> relavenceFilter = await UserService.GetRoleBasedFilter(userId);
+
+            return RemovePassword(await repo.GetUserReqeuestsByFilter(relavenceFilter));
         }
         public static async Task<int> CreateUserRequest(UserRequest userRequest)
         {
