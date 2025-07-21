@@ -126,7 +126,7 @@ namespace teachers_lounge_server.Services
             return repo.UpdateUserByFields(fieldToCheck, valueToCheck, fieldToUpdate, newValue);
         }
 
-        public async static Task<bool> CanRequestAffectUser(string? requestingUserId, string targetUserId)
+        public async static Task<bool> CanRequestAffectUser(string requestingUserId, string targetUserId)
         {
             List<User> targetUsers = await GetUsersByField("_id", ObjectId.Parse(targetUserId));
 
