@@ -26,6 +26,11 @@ namespace teachers_lounge_server.Entities
         {
             return typeof(Role).GetFields().Some(field => field.Name.Equals(maybRole));
         }
+
+        public static string[] GetAllRoles()
+        {
+            return typeof(Role).GetFields().Map(field => field.Name);
+        }
     }
 
     [BsonNoId]
