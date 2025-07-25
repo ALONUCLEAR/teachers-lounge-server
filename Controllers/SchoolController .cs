@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using teachers_lounge_server.Entities;
 using teachers_lounge_server.Services;
@@ -20,6 +21,18 @@ namespace teachers_lounge_server.Controllers
         public async Task<ActionResult<IEnumerable<School>>> GetAllSchools()
         {
             return Ok(await SchoolService.GetAllSchools());
+        }
+
+        [HttpGet("{id}", Name = "Get School By Id")]
+        public async Task<ActionResult<School>> GetSchoolById(string id)
+        {
+            if (!id.IsObjectId())
+            {
+                return BadRequest($"Id {id} doesn't fit the object Id format");
+            }
+
+            School? school = await SchoolService.GetSchoolById(ObjectId.Parse(id));
+            return school == null ? NoContent() : Ok(school);
         }
 
         [HttpPost("upsert", Name = "Upsert school")]
