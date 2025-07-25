@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Linq.Expressions;
+using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using teachers_lounge_server.Entities;
 using teachers_lounge_server.Services;
@@ -108,6 +109,40 @@ namespace teachers_lounge_server.Controllers
             }
 
 
+        }
+
+        [HttpPost("updatePassword/email", Name = "Send Mail To User To Update Password")]
+        public async Task<ActionResult<string>> SendUpdatePasswordEmail([FromBody] Dictionary<string, string> userDetails)
+        {
+            try {
+                await UserService.SendChangePasswordEmail(userDetails["email"], userDetails["userId"]);
+
+                return Ok("Email Was Sent");
+            } catch (Exception e) {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Email Was Not Sent :()", detail: e.Message);
+            }
+        }
+
+        [HttpPost("updatePassword", Name = "Update Password")]
+        public async Task<ActionResult<string>> UpdatePassword([FromBody] Dictionary<string, string> userDetails)
+        {
+            try {
+                await UserService.ChangePassword(userDetails["userId"], userDetails["newPassword"]);
+
+                return Ok("Password Was Updated");
+            } catch (Exception e) {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "No Passwordo Changed", detail: e.Message);
+            }
+        }
+
+        [HttpGet("{govId}", Name = "Get UserId By GovId")]
+        public async Task<ActionResult<string>> getUserIdByGovId(string govId)
+        {
+            return await UserService.getUserIdByGovId(govId);
         }
     }
 }
