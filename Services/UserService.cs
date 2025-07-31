@@ -232,5 +232,21 @@ namespace teachers_lounge_server.Services
 
             return RemovePassword(usersBySchoolId);
         }
+        public static async Task SendChangePasswordEmail(string email, string userId)
+        {
+            await EmailService.SendMailToAddress(email, "שינוי סיסמא", $"במידה ואתה רוצה לשלות סיסממא תמצוץ לי את הביצה {userId}");
+        }
+
+        public static async Task<UpdateResult> ChangePassword(string userId, string newPassword)
+        {
+           return await UpdateUserByFields("_id", ObjectId.Parse(userId), "password", newPassword.Hash());
+        }
+
+        public static async Task<string> getUserIdByGovId(string govId)
+        {
+            var users = await repo.GetUsersByField("govId", govId);
+
+            return users.Count == 1 ? users[0].id : null;
+        }
     }
 }
