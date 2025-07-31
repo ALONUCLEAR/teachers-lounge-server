@@ -63,7 +63,7 @@ namespace teachers_lounge_server.Controllers
             }
         }
 
-        [HttpPost("restore/{userId}",  Name = "Reactivate a blocked user")]
+        [HttpPost("restore/{userId}", Name = "Reactivate a blocked user")]
         public async Task<ActionResult<string>> UnbanUser(string userId)
         {
             try
@@ -127,7 +127,7 @@ namespace teachers_lounge_server.Controllers
             }
         }
 
-        [HttpPost("login", Name="Get user by credentials")]
+        [HttpPost("login", Name = "Get user by credentials")]
         public async Task<ActionResult<User?>> GetUserByCredentials([FromBody] Dictionary<string, string> credentials)
         {
             try
@@ -154,7 +154,6 @@ namespace teachers_lounge_server.Controllers
                 {
                     return BadRequest($"Invalid schoolId {schoolId}. Did not fit the ObjectId format");
                 }
-
                 IEnumerable<User> users = await UserService.GetUsersBySchool(ObjectId.Parse(schoolId));
 
                 if (includePending)
@@ -198,12 +197,27 @@ namespace teachers_lounge_server.Controllers
                 }
 
                 return Ok(await UserService.UnlinkSchool(targetUserId, schoolId));
+            } catch (Exception e) {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't unlink school {schoolId} from user {targetUserId}", detail: e.Message);
+            }
+        }
+
+        [HttpPost("updatePassword/email", Name = "Send Mail To User To Update Password")]
+        public async Task<ActionResult<string>> SendUpdatePasswordEmail([FromBody] Dictionary<string, string> userDetails)
+        {
+            try
+            {
+                await UserService.SendChangePasswordEmail(userDetails["email"], userDetails["userId"]);
+
+                return Ok("Email Was Sent");
             }
             catch (Exception e)
             {
                 this._logger.LogError(e.Message);
 
-                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't get users from schoolId {schoolId}", detail: e.Message);
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Email Was Not Sent :()", detail: e.Message);
             }
         }
 
@@ -224,13 +238,34 @@ namespace teachers_lounge_server.Controllers
                 }
 
                 return Ok(await UserService.LinkSchool(targetUserIds, schoolId));
+            } catch (Exception e) {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't link users {targetUserIds.Join(", ")} to school {schoolId}", detail: e.Message);
+            }
+        }
+
+        [HttpPost("updatePassword", Name = "Update Password")]
+        public async Task<ActionResult<string>> UpdatePassword([FromBody] Dictionary<string, string> userDetails)
+        {
+            try
+            {
+                await UserService.ChangePassword(userDetails["userId"], userDetails["newPassword"]);
+
+                return Ok("Password Was Updated");
             }
             catch (Exception e)
             {
                 this._logger.LogError(e.Message);
 
-                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't get users from schoolId {schoolId}", detail: e.Message);
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "No Passwordo Changed", detail: e.Message);                
             }
+        }
+
+        [HttpGet("{govId}", Name = "Get UserId By GovId")]
+        public async Task<ActionResult<string>> getUserIdByGovId(string govId)
+        {
+            return await UserService.getUserIdByGovId(govId);
         }
     }
 }
