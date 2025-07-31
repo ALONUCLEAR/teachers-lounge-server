@@ -75,6 +75,17 @@ namespace teachers_lounge_server.Services
             return RemovePassword(await repo.GetUsersByField(field, value));
         }
 
+        public async static Task<User?> GetUserById(string? userId)
+        {
+            if (userId == null)
+            {
+                return null;
+            }
+
+            var usersWithId = await GetUsersByField("_id", ObjectId.Parse(userId));
+
+            return usersWithId.Count == 1 ? usersWithId[0] : null;
+        }
         public async static Task<int> CreateUserFromRequestId(string requestId)
         {
             if (requestId == null || !requestId.IsObjectId())
@@ -126,11 +137,29 @@ namespace teachers_lounge_server.Services
             return repo.UpdateUserByFields(fieldToCheck, valueToCheck, fieldToUpdate, newValue);
         }
 
-        public async static Task<bool> CanRequestAffectUser(string requestingUserId, string targetUserId)
+        public static Task<UpdateResult> UnlinkSchool(string targetUserId, string schoolId)
         {
-            List<User> targetUsers = await GetUsersByField("_id", ObjectId.Parse(targetUserId));
+            return repo.UnlinkSchool(ObjectId.Parse(targetUserId), ObjectId.Parse(schoolId));
+        }
 
-            if (targetUsers.Count != 1)
+        public static Task<UpdateResult> LinkSchool(string[] targetUserIds, string schoolId)
+        {
+            return repo.LinkSchool(targetUserIds.Map(ObjectId.Parse), ObjectId.Parse(schoolId));
+        }
+
+        public async static Task<bool> CanRequestAffectUser(string requestingUserId, string targetUserId, string targetStatus = ActivityStatus.Active)
+        {
+            List<User> targetUsers = new();
+
+            if (targetStatus == ActivityStatus.Pending)
+            {
+                targetUsers.Add(new User(await UserRequestService.GetFullUserRequestById(ObjectId.Parse(targetUserId))));
+            } else
+            {
+                targetUsers.AddRange(await GetUsersByField("_id", ObjectId.Parse(targetUserId)));
+            }
+
+            if (targetUsers.Count != 1 || targetUsers[0].activityStatus != targetStatus)
             {
                 return false;
             }
@@ -139,6 +168,25 @@ namespace teachers_lounge_server.Services
             string targetRole = targetUsers[0].role;
 
             return roles.Some(role => role == targetRole);
+        }
+
+        public static async Task<bool> HasPermissions(string? userId, string? requiredRole)
+        {
+            if (requiredRole == null)
+            {
+                return true;
+            }
+
+            var user = await GetUserById(userId);
+
+            if (user == null || user.activityStatus != ActivityStatus.Active)
+            {
+                return false;
+            }
+
+            string[] lesserRoles = GetRelevantRoles(user.role);
+
+            return requiredRole == user.role || lesserRoles.Some(role => role == requiredRole);
         }
 
         public static Task<UpdateResult> ChangeUserStatus(string userId, bool isActive)
@@ -175,6 +223,15 @@ namespace teachers_lounge_server.Services
             return found;
         }
 
+        public static async Task<IEnumerable<User>> GetUsersBySchool(ObjectId schoolId)
+        {
+            var filterLists = new List<FilterDefinition<BsonDocument>>();
+            filterLists.Add(Builders<BsonDocument>.Filter.AnyEq("associatedSchools", schoolId));
+            filterLists.Add(Builders<BsonDocument>.Filter.Eq("activityStatus", ActivityStatus.Active));
+            List<User> usersBySchoolId = await repo.GetUsersByMultipleFilters(filterLists);
+
+            return RemovePassword(usersBySchoolId);
+        }
         public static async Task SendChangePasswordEmail(string email, string userId)
         {
             await EmailService.SendMailToAddress(email, "שינוי סיסמא", $"במידה ואתה רוצה לשלות סיסממא תמצוץ לי את הביצה {userId}");
@@ -188,7 +245,7 @@ namespace teachers_lounge_server.Services
         public static async Task<string> getUserIdByGovId(string govId)
         {
             var users = await repo.GetUsersByField("govId", govId);
-            
+
             return users.Count == 1 ? users[0].id : null;
         }
     }
