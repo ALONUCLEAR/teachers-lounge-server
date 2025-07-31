@@ -61,12 +61,36 @@ namespace teachers_lounge_server.Services
             return count > 0;
         }
 
-        public async static Task<List<TEntity>> GetEntitiesByField<TEntity, TValue>(IMongoCollection<BsonDocument> collection, string field, TValue value, Func<BsonDocument, TEntity> deserializer) where TEntity: MongoEntity
+        public static FilterDefinition<BsonDocument> GetFilterEq<TValue>(string field, TValue value)
         {
-            var filter = Builders<BsonDocument>.Filter.Eq(field, value);
-            var filteredEntites = await collection.Find(filter).ToListAsync();
+            return Builders<BsonDocument>.Filter.Eq(field, value);
+        }
 
-            return filteredEntites.Select(entity => deserializer(entity)).ToList();
+        public static FilterDefinition<BsonDocument> MergeFilterDefinitions(IEnumerable<FilterDefinition<BsonDocument>> filterList)
+        {
+            if (filterList == null || filterList.Count() == 0)
+            {
+                return Builders<BsonDocument>.Filter.Empty;
+            }
+
+            return Builders<BsonDocument>.Filter.And(filterList);
+        }
+        public static Task<List<TEntity>> GetEntitiesByMultipleFilters<TEntity>(IMongoCollection<BsonDocument> collection, IEnumerable<FilterDefinition<BsonDocument>> filterList, Func<BsonDocument, TEntity> deserializer) where TEntity : MongoEntity {
+            FilterDefinition<BsonDocument> combinedFilter = MergeFilterDefinitions(filterList);
+
+            return GetEntitiesByFilter(collection, combinedFilter, deserializer);
+        }
+        public async static Task<List<TEntity>> GetEntitiesByFilter<TEntity>(IMongoCollection<BsonDocument> collection, FilterDefinition<BsonDocument> filter, Func<BsonDocument, TEntity> deserializer) where TEntity: MongoEntity
+        {
+            List<BsonDocument> filteredEntities = await collection.Find(filter).ToListAsync();
+
+            return filteredEntities.Select(deserializer).ToList();
+        }
+        public static Task<List<TEntity>> GetEntitiesByField<TEntity, TValue>(IMongoCollection<BsonDocument> collection, string field, TValue value, Func<BsonDocument, TEntity> deserializer) where TEntity: MongoEntity
+        {
+            FilterDefinition<BsonDocument> filter = Builders<BsonDocument>.Filter.Eq(field, value);
+
+            return GetEntitiesByFilter(collection, filter, deserializer);
         }
 
         public async static Task<List<TEntity>> GetEntitiesByFieldValueIn<TEntity, TValue>(IMongoCollection<BsonDocument> collection, string field, TValue[] values, Func<BsonDocument, TEntity> deserializer) where TEntity : MongoEntity
