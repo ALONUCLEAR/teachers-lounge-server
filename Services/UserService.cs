@@ -75,6 +75,11 @@ namespace teachers_lounge_server.Services
             return RemovePassword(await repo.GetUsersByField(field, value));
         }
 
+        public async static Task<List<User>> GetUsersByFieldIn<TValue>(string field, TValue[] values)
+        {
+            return RemovePassword(await repo.GetUsersByFieldValueIn(field, values));
+        }
+
         public async static Task<User?> GetUserById(string? userId)
         {
             if (userId == null)
@@ -120,7 +125,7 @@ namespace teachers_lounge_server.Services
                 $"הבקשה שפתחת ליצירת משתמש אושרה.\n" +
                 $"עכשיו ניתן להתחיל ולהשתמש במערכת בקישור הבא:\n" +
                 @"https://www.youtube.com/watch?v=dQw4w9WgXcQ";
-            await EmailService.SendMailToAddress(userCopy.email, "אישור בקשה ליצירת משתמש", welcomeMessage);
+            await EmailService.SendMailToAddress([userCopy.email], "אישור בקשה ליצירת משתמש", welcomeMessage);
 
             if (!await UserRequestService.DeleteUserRequest(request.id))
             {
@@ -234,7 +239,7 @@ namespace teachers_lounge_server.Services
         }
         public static async Task SendChangePasswordEmail(string email, string userId)
         {
-            await EmailService.SendMailToAddress(email, "שינוי סיסמא", $"במידה ואתה רוצה לשלות סיסממא תמצוץ לי את הביצה {userId}");
+            await EmailService.SendMailToAddress([email], "שינוי סיסמא", $"במידה ואתה רוצה לשלות סיסממא תמצוץ לי את הביצה {userId}");
         }
 
         public static async Task<UpdateResult> ChangePassword(string userId, string newPassword)

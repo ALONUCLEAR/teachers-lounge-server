@@ -15,6 +15,18 @@ namespace teachers_lounge_server.Services
             return repo.GetAllAssociations();
         }
 
+        public async static Task<Association?> GetAssociationById(ObjectId associationId)
+        {
+            List<Association> associations = await repo.GetAssocationsByField("_id", associationId);
+
+            if (associations.Count != 1)
+            {
+                return null;
+            }
+
+            return associations[0];
+        }
+
         public async static Task<List<Association>> GetAssociationsByTypenameAndSchool(string typename, string schoolId)
         {
             if (!AssociationType.isValid(typename))
@@ -89,6 +101,28 @@ namespace teachers_lounge_server.Services
         public static Task<bool> DeleteAssociation(string associationId)
         {
             return repo.DeleteAssociation(associationId);
+        }
+
+        public static async Task<List<User>> GetAllUsersInAssociations(string[] associationIds)
+        {
+            ObjectId[] objectIds = associationIds.FilterAndMap(Utils.IsObjectId, ObjectId.Parse).ToArray();
+
+            List<Association> associations = await repo.GetAssocationsByFieldIn("_id", objectIds);
+
+            HashSet<string> userIds = new();
+
+            foreach (var association in associations)
+            {
+                foreach (var id in association.associatedUsers)
+                {
+                    if (id.IsObjectId())
+                    {
+                        userIds.Add(id);
+                    }
+                }
+            }
+
+            return await UserService.GetUsersByFieldIn("_id", userIds.ToArray().Map(ObjectId.Parse));
         }
     }
 }

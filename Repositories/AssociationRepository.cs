@@ -13,10 +13,17 @@ namespace teachers_lounge_server.Repositories
         {
             return MongoService.GetEntireCollection<Association>(Collection);
         }
+
         public Task<List<Association>> GetAssocationsByField<TValue>(string fieldName, TValue value)
         {
             return MongoService.GetEntitiesByField(Collection, fieldName, value, Association.FromBsonDocument);
         }
+
+        public Task<List<Association>> GetAssocationsByFieldIn<TValue>(string fieldName, TValue[] values)
+        {
+            return MongoService.GetEntitiesByFieldValueIn(Collection, fieldName, values, Association.FromBsonDocument);
+        }
+
         public Task<List<Association>> GetAssociationsByMultipleFilters(IEnumerable<FilterDefinition<BsonDocument>> filterList)
         {
             return MongoService.GetEntitiesByMultipleFilters(Collection, filterList, Association.FromBsonDocument);

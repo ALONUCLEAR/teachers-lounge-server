@@ -73,7 +73,7 @@ namespace teachers_lounge_server.Services
             {
                 if (sendMailIfUserExists)
                 {
-                    await EmailService.SendMailToAddress(request.email, "נסיון הרשמה - מערכת חדר מורים", $"זיהינו שניסת להרשם עם כתובת המייל הזאת.\n{userWithEmailMessageEnd}");
+                    await EmailService.SendMailToAddress([request.email], "נסיון הרשמה - מערכת חדר מורים", $"זיהינו שניסת להרשם עם כתובת המייל הזאת.\n{userWithEmailMessageEnd}");
                 }
 
                 return true;
@@ -154,7 +154,7 @@ namespace teachers_lounge_server.Services
                 $"הבקשה נקלטה במערכת ותופץ בדקות הקרובות למאשרים הרלוונטיים.\n" +
                 $"כשהבקשה תאושר ישלח מייל לידע אותך שאפשר להתחיל להשתמש במערכת.\n" +
                 $"שיהיה לך יום קסום!";
-            await EmailService.SendMailToAddress(serializedInput.email, "בקשת יצירת משתמש", welcomeMessage);
+            await EmailService.SendMailToAddress([serializedInput.email], "בקשת יצירת משתמש", welcomeMessage);
             // TODO: send alerts(+mails) to the group of relavent approvers
 
             return StatusCodes.Status200OK;
@@ -173,7 +173,7 @@ namespace teachers_lounge_server.Services
                     $"בקשת שחזור נועדה למשתמשים שנחסמו. שלך עדיין לא אושר אישור ראשוני\n" +
                     $"אנא פנה לגורמים הרלוונטיים כדי שיאשרו את הרשמתך";
 
-                await EmailService.SendMailToAddress(userRequest.email, mailTitle, pendingUserMessage);
+                await EmailService.SendMailToAddress([userRequest.email], mailTitle, pendingUserMessage);
 
                 return;
             }
@@ -196,7 +196,7 @@ namespace teachers_lounge_server.Services
                   @"https://www.youtube.com/watch?v=dQw4w9WgXcQ";
             string message = $"שלום {fullName}.\n${messageBody}";
 
-            await EmailService.SendMailToAddress(user.email, mailTitle, message);
+            await EmailService.SendMailToAddress([user.email], mailTitle, message);
         }
 
         public static Task<bool> DeleteUserRequest(string userRequestId)
