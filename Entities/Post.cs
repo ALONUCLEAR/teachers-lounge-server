@@ -25,7 +25,7 @@ namespace teachers_lounge_server.Entities
 
         public DateTime? lastUpdatedAt { get; set; }
 
-        public int commentsCount { get; set; }
+        public int totalChildrenCount { get; set; }
 
         public Post()
         {
@@ -37,10 +37,10 @@ namespace teachers_lounge_server.Entities
             media = new byte[0][];
             publishedAt = DateTime.UtcNow;
             lastUpdatedAt = null;
-            commentsCount = 0;
+            totalChildrenCount = 0;
         }
 
-        public Post(string id, string title, string subjectId, string authorId, string body, byte[][] media, DateTime publishedAt, DateTime? lastUpdatedAt, int commentsCount)
+        public Post(string id, string title, string subjectId, string authorId, string body, byte[][] media, DateTime publishedAt, DateTime? lastUpdatedAt, int totalChildrenCount)
         {
             this.id = id;
             this.title = title;
@@ -50,7 +50,7 @@ namespace teachers_lounge_server.Entities
             this.media = media;
             this.publishedAt = publishedAt;
             this.lastUpdatedAt = lastUpdatedAt;
-            this.commentsCount = commentsCount;
+            this.totalChildrenCount = totalChildrenCount;
         }
 
         public override BsonDocument ToBsonDocument()
@@ -80,7 +80,7 @@ namespace teachers_lounge_server.Entities
                 document.Add("lastUpdatedAt", BsonNull.Value);
             }
 
-            document.Add("commentsCount", commentsCount);
+            document.Add("totalChildrenCount", totalChildrenCount);
 
             return document;
         }
@@ -104,7 +104,7 @@ namespace teachers_lounge_server.Entities
                 ? lastUpdateVal.ToUniversalTime()
                 : null;
 
-            result.commentsCount = document.GetValueOrDefault<int>("commentsCount");
+            result.totalChildrenCount = document.GetValueOrDefault<int>("totalChildrenCount");
 
             return result;
         }
