@@ -33,7 +33,12 @@ namespace teachers_lounge_server.Repositories
         {
             return MongoService.UpsertEntity(Collection, post);
         }
-
+        public async Task<UpdateResult> IncremeantTotalCommentsCount(ObjectId postId, int delta)
+        {
+            return await Collection.UpdateManyAsync(
+                Builders<BsonDocument>.Filter.Eq("_id", postId),
+                Builders<BsonDocument>.Update.Inc("totalChildrenCount", delta));
+        }
         public Task<bool> DeletePost(string postId)
         {
             return MongoService.DeleteEntity(Collection, postId);

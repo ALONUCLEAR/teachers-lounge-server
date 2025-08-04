@@ -57,4 +57,21 @@ namespace teachers_lounge_server.Entities
             return comment;
         }
     }
+
+    public class ExpandedComment : Comment
+    {
+        public ExpandedComment[] children { get; set; } = new ExpandedComment[0];
+
+        public ExpandedComment(Comment comment): base(comment) {}
+
+        public ExpandedComment(Comment comment, ExpandedComment[] children): base(comment)
+        {
+            this.children = children;
+        }
+
+        public ExpandedComment(Comment comment, Comment[] children): base(comment)
+        {
+            this.children = children.Map(comment => new ExpandedComment(comment));
+        }
+    }
 }

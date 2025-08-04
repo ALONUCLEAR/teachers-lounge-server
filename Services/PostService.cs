@@ -80,6 +80,13 @@ namespace teachers_lounge_server.Services
             return post.authorId == userId;
         }
 
+        // TODO: fix the delete method here so it deletes all the comments as well
+        public static Task<UpdateResult> IncrementTotalChildrenCount(ObjectId postId, int delta)
+        {
+            return repo.IncremeantTotalCommentsCount(postId, delta);
+        }
+
+
         public static Task<bool> DeletePost(string postId)
         {
             return repo.DeletePost(postId);
