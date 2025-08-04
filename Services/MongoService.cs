@@ -101,6 +101,14 @@ namespace teachers_lounge_server.Services
             return filteredEntites.Select(deserializer).ToList();
         }
 
+        public async static Task<List<TEntity>> GetEntitiesByFieldContainsValue<TEntity, TValue>(IMongoCollection<BsonDocument> collection, string field, TValue filterValue, Func<BsonDocument, TEntity> deserializer) where TEntity : MongoEntity
+        {
+            var filter = Builders<BsonDocument>.Filter.AnyEq(field, filterValue);
+            var filteredEntites = await collection.Find(filter).ToListAsync();
+
+            return filteredEntites.Select(deserializer).ToList();
+        }
+
         public async static Task CreateEntity<TEntity>(IMongoCollection<BsonDocument> collection, TEntity entityToCreate) where TEntity : MongoEntity
         {
             var createdBson = entityToCreate.ToBsonDocument();
@@ -118,7 +126,7 @@ namespace teachers_lounge_server.Services
             BsonDocument[] idFilter = { new BsonDocument("$match", new BsonDocument("_id", upsertedEntityId)) };
             BsonDocument[] fullAggregatePipeLine = Utils.Merge(idFilter, idConverterPipeline);
 
-            var entitiesToUpsert = await collection.Aggregate<TEntity>(fullAggregatePipeLine).ToListAsync();
+            var entitiesToUpsert = await collection.Aggregate<BsonDocument>(fullAggregatePipeLine).ToListAsync();
 
             if (entitiesToUpsert.Count > 1)
             {
