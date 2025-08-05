@@ -33,8 +33,8 @@ namespace teachers_lounge_server.Entities
 
         public Comment(Comment comment): base(comment)
         {
-            this.parentId = "";
-            this.parentPostId = "";
+            this.parentId = comment.parentId;
+            this.parentPostId = comment.parentPostId;
         }
 
         public override BsonDocument ToBsonDocument()

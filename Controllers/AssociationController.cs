@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using teachers_lounge_server.Entities;
 using teachers_lounge_server.Services;
@@ -21,6 +22,20 @@ namespace teachers_lounge_server.Controllers
         public async Task<ActionResult<IEnumerable<Association>>> GetAllAssociations()
         {
             return Ok(await AssociationService.GetAllAssociations());
+        }
+
+        [HttpGet("{id}", Name = "Association By Id")]
+        [UserIdValidator]
+        public async Task<ActionResult<Association>> GetAssiactionById(string id)
+        {
+            if (!id.IsObjectId())
+            {
+                return BadRequest($"Failed to get association by id {id}. Invalid ID.");
+            }
+
+            var association = await AssociationService.GetAssociationById(ObjectId.Parse(id));
+
+            return association == null ? NoContent() : Ok(association);
         }
 
         [HttpGet("type/{typeName}/from/{schoolId}", Name = "All associations of given type in this school")]

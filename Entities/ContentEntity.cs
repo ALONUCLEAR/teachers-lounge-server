@@ -82,9 +82,16 @@ namespace teachers_lounge_server.Entities
                 .Map(x => ((BsonBinaryData)x).Bytes)
                 .ToArray() ?? Array.Empty<byte[]>();
             content.publishedAt = document.GetValueOrDefault<DateTime>("publishedAt");
-            content.lastUpdatedAt = document.Contains("lastUpdatedAt")
-                ? document.GetValueOrDefault<DateTime>("lastUpdatedAt").ToUniversalTime()
-                : null;
+
+            if (document.TryGetValue("lastUpdatedAt", out var bsonValue) && bsonValue.IsBsonDateTime)
+            {
+                content.lastUpdatedAt = bsonValue.ToUniversalTime();
+            }
+            else
+            {
+                content.lastUpdatedAt = null;
+            }
+
             content.totalChildrenCount = document.GetValueOrDefault<int>("totalChildrenCount");
 
             return content;

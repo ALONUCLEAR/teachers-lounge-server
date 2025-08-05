@@ -17,9 +17,23 @@ namespace teachers_lounge_server.Controllers
             _logger = logger;
         }
 
+        [HttpGet("{id}", Name = "Get post by ID")]
+        [UserIdValidator]
+        public async Task<ActionResult<ExpandedPost>> GetPostById(string id, [FromQuery(Name = "depth")] int depth = 1)
+        {
+            if (!id.IsObjectId())
+            {
+                return BadRequest($"Failed to get post by id. Invalid post id {id}");
+            }
+
+            var post = await PostService.GetPostById(ObjectId.Parse(id), depth);
+
+            return post == null ? NoContent() : Ok(post);
+        }
+
         [HttpGet("by-subjects", Name = "Get posts by subject IDs")]
         [UserIdValidator]
-        public async Task<ActionResult<IEnumerable<Post>>> GetPostsBySubjectIds([FromQuery(Name = "subjectIds[]")] string[]? subjectIds)
+        public async Task<ActionResult<IEnumerable<ExpandedPost>>> GetPostsBySubjectIds([FromQuery(Name = "subjectIds[]")] string[]? subjectIds)
         {
             var objectIds = subjectIds?.FilterAndMap(Utils.IsObjectId, ObjectId.Parse) ?? [];
 

@@ -19,76 +19,15 @@ namespace teachers_lounge_server.Repositories
             return MongoService.GetEntitiesByField(Collection, fieldName, value, Comment.FromBsonDocument);
         }
 
-        // TODO: a lot of similar stuff here, we might want to put a function/var/calculated field for most  of the pipe
-        public async Task<List<ObjectId>> GetAllAncestorCommentIds(ObjectId directParentId)
+        public Task<List<ObjectId>> GetAllAncestorCommentIds(ObjectId directParentId)
         {
-            var pipeline = new[]
-            {
-                new BsonDocument("$match", new BsonDocument("_id", directParentId)),
-                new BsonDocument("$graphLookup", new BsonDocument
-                {
-                    { "from", CollectionName },
-                    { "startWith", "$parentId" },
-                    { "connectFromField", "parentId" },
-                    { "connectToField", "_id" },
-                    { "as", "ancestors" }
-                }),
-                new BsonDocument("$project", new BsonDocument("ancestorIds",
-                new BsonDocument("$map", new BsonDocument
-                {
-                    { "input", "$ancestors" },
-                    { "as", "a" },
-                    { "in", "$$a._id" }
-                })
-                ))
-            };
-
-            var result = await Collection
-                .Aggregate<BsonDocument>(pipeline)
-                .FirstOrDefaultAsync();
-
-            var ancestorCommentsIds = result?.GetValue("ancestorIds")
-                ?.AsBsonArray
-                ?.Select(id => id.AsObjectId)
-                ?.ToList()
-                ?? new List<ObjectId>();
-            ancestorCommentsIds.Add(directParentId);
-
-            return ancestorCommentsIds;
+            return MongoService.GraphTraverseIds(Collection, directParentId, "parentId", "parentId", "_id", "ancestorIds");
         }
 
-        public async Task<List<ObjectId>> GetAllNestedCommentIds(ObjectId rootCommentId)
+        public Task<List<ObjectId>> GetAllNestedCommentIds(ObjectId rootCommentId)
         {
-            var pipeline = new BsonDocument[]
-            {
-                new BsonDocument("$match", new BsonDocument("_id", rootCommentId)),
-                new BsonDocument("$graphLookup", new BsonDocument
-                {
-                    { "from", "comments" },
-                    { "startWith", "$_id" },
-                    { "connectFromField", "_id" },
-                    { "connectToField", "parentId" },
-                    { "as", "descendants" }
-                }),
-                new BsonDocument("$project", new BsonDocument
-                {
-                    { "allIds", new BsonDocument("$concatArrays", new BsonArray
-                    {
-                        new BsonArray { "$_id" },
-                        new BsonDocument("$map", new BsonDocument
-                        {
-                            { "input", "$descendants" },
-                            { "as", "desc" },
-                            { "in", "$$desc._id" }
-                        })
-                    })
-                    }
-                })
-            };
+            return MongoService.GraphTraverseIds(Collection, rootCommentId, "_id", "_id", "parentId", "descendantIds");
 
-            var result = await Collection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
-
-            return result?.GetValue("allIds")?.AsBsonArray?.Map(id => id.AsObjectId)?.ToList() ?? new List<ObjectId>();
         }
 
 
@@ -109,6 +48,13 @@ namespace teachers_lounge_server.Repositories
             return result.DeletedCount == commentIds.Count;
         }
 
+        public async Task<bool> DeleteCommentsByParentPostId(ObjectId parentPostId)
+        {
+            var filter = Builders<BsonDocument>.Filter.Eq("parentPostId", parentPostId);
+            var result = await Collection.DeleteManyAsync(filter);
+
+            return result.DeletedCount > 0;
+        }
 
         public Task<List<Comment>> GetCommentsByFieldIn<TValue>(string fieldName, TValue[] values)
         {

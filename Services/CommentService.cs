@@ -75,6 +75,11 @@ namespace teachers_lounge_server.Services
             return true;
         }
 
+        public static Task<bool> DeleteAllCommentsInPost(ObjectId postId)
+        {
+            return repo.DeleteCommentsByParentPostId(postId);
+        }
+
         public static async Task<bool> CanUserDeleteComment(string? userId, string commentId)
         {
             if (!commentId.IsObjectId())
@@ -137,6 +142,7 @@ namespace teachers_lounge_server.Services
         private static async Task<bool> UpdateParentChildCount(ObjectId parentId, ObjectId parentPostId, int delta)
         {
             var ancestorCommentsIds = await repo.GetAllAncestorCommentIds(parentId);
+            ancestorCommentsIds.Add(parentId);
 
             await repo.IncremeantCountForAllAncestorComments(ancestorCommentsIds, delta);
 
