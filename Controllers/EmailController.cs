@@ -21,7 +21,7 @@ namespace teachers_lounge_server.Controllers
         {
             try
             {
-                await EmailService.SendMailToAddress(emailAddress, mailInput);
+                await EmailService.SendMailToAddresses([emailAddress], mailInput);
 
                 return Ok();
             } catch (Exception mailSendingException)
