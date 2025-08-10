@@ -1,5 +1,5 @@
-﻿using System.Linq.Expressions;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using teachers_lounge_server.Entities;
 using teachers_lounge_server.Services;
@@ -38,12 +38,12 @@ namespace teachers_lounge_server.Controllers
                     return BadRequest("userId header is missing");
                 }
 
-                int responseStatus = await UserService.CreateUserFromRequestId(requestId);
-
-                if (!await UserService.CanRequestAffectUser(requestingUserId, requestId))
+                if (!await UserService.CanRequestAffectUser(requestingUserId, requestId, ActivityStatus.Pending))
                 {
                     return Unauthorized($"You do not have permissions to accept the request {requestId}");
                 }
+
+                int responseStatus = await UserService.CreateUserFromRequestId(requestId);
 
                 switch (responseStatus)
                 {
@@ -63,7 +63,7 @@ namespace teachers_lounge_server.Controllers
             }
         }
 
-        [HttpPost("restore/{userId}",  Name = "Reactivate a blocked user")]
+        [HttpPost("restore/{userId}", Name = "Reactivate a blocked user")]
         public async Task<ActionResult<string>> UnbanUser(string userId)
         {
             try
@@ -78,7 +78,7 @@ namespace teachers_lounge_server.Controllers
                     return BadRequest($"Invalid ObjectId {userId}");
                 }
 
-                if (!await UserService.CanRequestAffectUser(requestingUserId, userId))
+                if (!await UserService.CanRequestAffectUser(requestingUserId, userId, ActivityStatus.Blocked))
                 {
                     return Unauthorized($"You do not have permissions to unban user {userId}");
                 }
@@ -127,7 +127,7 @@ namespace teachers_lounge_server.Controllers
             }
         }
 
-        [HttpPost("login", Name="Get user by credentials")]
+        [HttpPost("login", Name = "Get user by credentials")]
         public async Task<ActionResult<User?>> GetUserByCredentials([FromBody] Dictionary<string, string> credentials)
         {
             try
@@ -142,35 +142,123 @@ namespace teachers_lounge_server.Controllers
 
                 return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Couldn't get user from credentials", detail: e.Message);
             }
+        }
 
+        [HttpGet("from-school/{schoolId}", Name = "All active users from said school")]
+        [UserIdValidator]
+        public async Task<ActionResult<IEnumerable<User>>> GetAllAssociationsOfType(string schoolId, [FromQuery] bool includePending = false)
+        {
+            try
+            {
+                if (!schoolId.IsObjectId())
+                {
+                    return BadRequest($"Invalid schoolId {schoolId}. Did not fit the ObjectId format");
+                }
+                IEnumerable<User> users = await UserService.GetUsersBySchool(ObjectId.Parse(schoolId));
 
+                if (includePending)
+                {
+                    // no need to check because we already have the UserIdValidator
+                    Request.Headers.TryGetValue("userId", out var userId);
+                    var userRequestsForSchool = await UserRequestService.GetAllRequestsForSchool(userId!, schoolId);
+                    users = users.Concat(userRequestsForSchool);
+                }
+
+                return Ok(users);
+            } catch (Exception e)
+            {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't get users from schoolId {schoolId}", detail: e.Message);
+            }
+        }
+
+        [HttpPost("{targetUserId}/unlink-school/{schoolId}", Name = "Remove the school from the associatedSchools array")]
+        [UserIdValidator]
+        public async Task<ActionResult<UpdateResult>> UnlinkSchool(string targetUserId, string schoolId)
+        {
+            try
+            {
+                if (!targetUserId.IsObjectId())
+                {
+                    return BadRequest($"Invalid targetUserId {targetUserId}. Did not fit the ObjectId format");
+                }
+
+                if (!schoolId.IsObjectId())
+                {
+                    return BadRequest($"Invalid schoolId {schoolId}. Did not fit the ObjectId format");
+                }
+
+                Request.Headers.TryGetValue("userId", out var userId);
+
+                if (!await UserService.CanRequestAffectUser(userId, targetUserId))
+                {
+                    return Unauthorized($"You do not have permissions to unlink the user {targetUserId}");
+                }
+
+                return Ok(await UserService.UnlinkSchool(targetUserId, schoolId));
+            } catch (Exception e) {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't unlink school {schoolId} from user {targetUserId}", detail: e.Message);
+            }
         }
 
         [HttpPost("updatePassword/email", Name = "Send Mail To User To Update Password")]
         public async Task<ActionResult<string>> SendUpdatePasswordEmail([FromBody] Dictionary<string, string> userDetails)
         {
-            try {
+            try
+            {
                 await UserService.SendChangePasswordEmail(userDetails["email"], userDetails["userId"]);
 
                 return Ok("Email Was Sent");
-            } catch (Exception e) {
+            }
+            catch (Exception e)
+            {
                 this._logger.LogError(e.Message);
 
                 return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Email Was Not Sent :()", detail: e.Message);
             }
         }
 
-        [HttpPost("updatePassword", Name = "Update Password")]
-        public async Task<ActionResult<string>> UpdatePassword([FromBody] Dictionary<string, string> userDetails)
+        [HttpPost("link-school/{schoolId}", Name = "Add the school from the associatedSchools array for all target users")]
+        [UserIdValidator]
+        public async Task<ActionResult<UpdateResult>> LinkSchool(string schoolId, [FromBody] string[] targetUserIds)
         {
-            try {
-                await UserService.ChangePassword(userDetails["userId"], userDetails["newPassword"]);
+            try
+            {
+                if (targetUserIds.Some(id => !id.IsObjectId()))
+                {
+                    return BadRequest($"Invalid targetUserId. One of these values [{targetUserIds.Join(", ")}] did not fit the ObjectId format");
+                }
 
-                return Ok("Password Was Updated");
+                if (!schoolId.IsObjectId())
+                {
+                    return BadRequest($"Invalid schoolId {schoolId}. Did not fit the ObjectId format");
+                }
+
+                return Ok(await UserService.LinkSchool(targetUserIds, schoolId));
             } catch (Exception e) {
                 this._logger.LogError(e.Message);
 
-                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "No Passwordo Changed", detail: e.Message);
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't link users {targetUserIds.Join(", ")} to school {schoolId}", detail: e.Message);
+            }
+        }
+
+        [HttpPost("updatePassword", Name = "Update Password")]
+        public async Task<ActionResult<string>> UpdatePassword([FromBody] Dictionary<string, string> userDetails)
+        {
+            try
+            {
+                await UserService.ChangePassword(userDetails["userId"], userDetails["newPassword"]);
+
+                return Ok("Password Was Updated");
+            }
+            catch (Exception e)
+            {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "No Passwordo Changed", detail: e.Message);                
             }
         }
 
