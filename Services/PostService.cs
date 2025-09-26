@@ -67,7 +67,7 @@ namespace teachers_lounge_server.Services
             return post.authorId == userId;
         }
 
-        public static Task<ReplaceOneResult> UpsertPost(string userId, Post post)
+        public static Task<ReplaceOneResult> UpsertPost(Post post)
         {
             return repo.UpsertPost(post);
         }

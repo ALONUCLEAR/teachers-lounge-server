@@ -31,6 +31,23 @@ namespace teachers_lounge_server.Entities
         {
             return typeof(Role).GetFields().Map(field => field.Name);
         }
+
+        public static string HebrewFromKey(string key)
+        {
+            switch (key)
+            {
+                case Base:
+                    return "מורה";
+                case Admin:
+                    return "מנהל(/ת)";
+                case SuperAdmin:
+                    return "בכיר(/ה)";
+                case Support:
+                    return "תמיכה";
+                default:
+                    return key;
+            }
+        }
     }
 
     [BsonNoId]

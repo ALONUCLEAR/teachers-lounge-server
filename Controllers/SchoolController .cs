@@ -48,7 +48,7 @@ namespace teachers_lounge_server.Controllers
                 return Unauthorized($"You do not have permissions to upsert the school {school.name}");
             }
 
-            return Ok(await SchoolService.UpsertSchool(school));
+            return Ok((await SchoolService.UpsertSchool(school)).Serialize());
         }
 
         [HttpDelete("{schoolId}", Name = "Delete school")]

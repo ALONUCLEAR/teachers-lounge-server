@@ -53,7 +53,7 @@ namespace teachers_lounge_server.Repositories
             var filter = Builders<BsonDocument>.Filter.Eq("parentPostId", parentPostId);
             var result = await Collection.DeleteManyAsync(filter);
 
-            return result.DeletedCount > 0;
+            return result.IsAcknowledged;
         }
 
         public Task<List<Comment>> GetCommentsByFieldIn<TValue>(string fieldName, TValue[] values)

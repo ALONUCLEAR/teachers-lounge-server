@@ -76,7 +76,7 @@ namespace teachers_lounge_server.Controllers
                 return BadRequest($"An {association.type} with the name {association.name} already exists in one of these schools [{allSchools}]");
             }
 
-            return Ok(await AssociationService.UpsertAssociation(userId!, association));
+            return Ok((await AssociationService.UpsertAssociation(userId!, association)).Serialize());
         }
 
         [HttpDelete("{associationId}", Name = "Delete association")]

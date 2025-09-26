@@ -111,17 +111,25 @@ namespace teachers_lounge_server.Services
             return filteredEntites.Select(deserializer).ToList();
         }
 
-        public async static Task CreateEntity<TEntity>(IMongoCollection<BsonDocument> collection, TEntity entityToCreate) where TEntity : MongoEntity
+        public async static Task<BsonValue?> CreateEntity<TEntity>(IMongoCollection<BsonDocument> collection, TEntity entityToCreate) where TEntity : MongoEntity
         {
             var createdBson = entityToCreate.ToBsonDocument();
             await collection.InsertOneAsync(createdBson);
+
+            if (!createdBson.TryGetValue("_id", out var newId))
+            {
+                return null;
+            }
+
+            return newId;
         }
         public async static Task<ReplaceOneResult> UpsertEntity<TEntity>(IMongoCollection<BsonDocument> collection, TEntity upsertedEntity) where TEntity : MongoEntity
         {
             if (!upsertedEntity.id.IsObjectId())
             {
-                await CreateEntity(collection, upsertedEntity);
-                return new ReplaceOneResult.Acknowledged(0, 1, null);
+                var createdEntityId = await CreateEntity(collection, upsertedEntity);
+
+                return new ReplaceOneResult.Acknowledged(0, 1, createdEntityId);
             }
 
             var upsertedEntityId = ObjectId.Parse(upsertedEntity.id);

@@ -48,26 +48,46 @@ namespace teachers_lounge_server.Controllers
         [HttpPost(Name = "Upsert post")]
         public async Task<ActionResult<ReplaceOneResult>> UpsertPost([FromBody] Post post, [FromQuery(Name = "importantParticipants[]")] string[]? importantParticipants = null)
         {
-            if (!Request.Headers.TryGetValue("userId", out var userId))
+            try
             {
-                return BadRequest("userId header is missing");
-            }
+                if (!Request.Headers.TryGetValue("userId", out var userId))
+                {
+                    return BadRequest("userId header is missing");
+                }
 
-            if ((post.id?.IsObjectId() ?? false) && !PostService.CanUserEditPost(userId, post))
+                if ((post.id?.IsObjectId() ?? false) && !PostService.CanUserEditPost(userId, post))
+                {
+                    return Unauthorized($"User {userId} does not have permissions to update the post {post.id}");
+                }
+
+                var res = await PostService.UpsertPost(post);
+
+                if (importantParticipants != null)
+                {
+                    Association? subject = await AssociationService.GetAssociationById(ObjectId.Parse(post.subjectId));
+                    string content = $"לפוסט קוראים {post.title} והוא נמצא בתוך הנושא {subject!.name}.\nרוצים לקרוא אותו? הכנסו למערכת וקחו חלק בשיח!";
+                    string pageLink = res.UpsertedId != null ? $"posts/{res.UpsertedId.AsObjectId.ToString()}" : "forum";
+
+                    Alert newPostAlert = new Alert()
+                    {
+                        title = "פורסם פוסט חדש שנוגע לך",
+                        body = content,
+                        importanceLevel = ImportanceLevel.Medium,
+                        link = $"{Utils.CLIENT_BASE_URL}/#/{pageLink}",
+                        dateCreated = DateTime.Now,
+                    };
+
+                    newPostAlert = await AlertService.FillAlertByAssociations(newPostAlert, importantParticipants);
+                    await AlertService.SendAlert(newPostAlert, true, userId);
+                }
+
+                return Ok(res.Serialize());
+            } catch (Exception e)
             {
-                return Unauthorized($"User {userId} does not have permissions to update the post {post.id}");
+                this._logger.LogError(e, "An error occured while trying to create post");
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't create post {post.title}", detail: e.Message);
             }
-
-
-
-            if (importantParticipants != null)
-            {
-                Association? subject = await AssociationService.GetAssociationById(ObjectId.Parse(post.subjectId));
-                string content = $"לפוסט קוראים {post.title} והוא נמצא בתוך הנושא {subject!.name}.\nרוצים לקרוא אותו? הכנסו למערכת וקחו חלק בשיח!";
-                await EmailService.SendMailByAssociations(importantParticipants, "פורסם פוסט חדש שנוגע לך", content);
-            }
-
-            return Ok(await PostService.UpsertPost(userId!, post));
         }
 
         [HttpDelete("{postId}", Name = "Delete post")]

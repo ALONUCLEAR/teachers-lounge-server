@@ -31,7 +31,7 @@ namespace teachers_lounge_server.Services
         }
         private static string[] GetRelevantRoles(string userRole)
         {
-            switch(userRole)
+            switch (userRole)
             {
                 case Role.Support:
                     return Role.GetAllRoles();
@@ -43,7 +43,7 @@ namespace teachers_lounge_server.Services
                     return new string[0];
             }
         }
-        public async static Task<string[]> GetRelaventRolesByUserId(string? userId)
+        public async static Task<string[]> GetRelevantRolesByUserId(string? userId)
         {
             string userRole = await GetUserRole(userId);
 
@@ -51,11 +51,14 @@ namespace teachers_lounge_server.Services
         }
         public async static Task<FilterDefinition<BsonDocument>> GetRoleBasedFilter(string? userId)
         {
-            string[] relaventRoles = await GetRelaventRolesByUserId(userId);
-
-            return Builders<BsonDocument>.Filter.In("role", relaventRoles);
+            return GetPureRoleBasedFilter(await GetRelevantRolesByUserId(userId));
         }
-        public async static Task<List<User>> GetUsersByStatus(string? userId, string status)
+
+        public static FilterDefinition<BsonDocument> GetPureRoleBasedFilter(string[] relevantRoles)
+        {
+            return Builders<BsonDocument>.Filter.In("role", relevantRoles);
+        }
+        public async static Task<List<User>> GetUsersByStatus(string? userId, string status, bool affectedOnly)
         {
             if (!ActivityStatus.isValid(status))
             {
@@ -63,8 +66,31 @@ namespace teachers_lounge_server.Services
             }
 
             var filterList = new List<FilterDefinition<BsonDocument>>();
-            filterList.Add(await GetRoleBasedFilter(userId));
+
+            if (affectedOnly)
+            {
+                filterList.Add(await GetRoleBasedFilter(userId));
+            }
+
             filterList.Add(Builders<BsonDocument>.Filter.Eq("activityStatus", status));
+
+            List<User> filteredUsers = await repo.GetUsersByMultipleFilters(filterList);
+
+            return RemovePassword(filteredUsers);
+        }
+
+        public async static Task<List<User>> GetUsersByRoles(string[] roles)
+        {
+            var validRoles = roles.Filter(Role.isValid);
+
+            if (validRoles.Length < 1)
+            {
+                return new();
+            }
+
+            var filterList = new List<FilterDefinition<BsonDocument>>();
+            filterList.Add(GetPureRoleBasedFilter(validRoles));
+            filterList.Add(Builders<BsonDocument>.Filter.Eq("activityStatus", ActivityStatus.Active));
 
             List<User> filteredUsers = await repo.GetUsersByMultipleFilters(filterList);
 
@@ -124,8 +150,8 @@ namespace teachers_lounge_server.Services
             string welcomeMessage = $"{userCopy.info.fullName},\n" +
                 $"הבקשה שפתחת ליצירת משתמש אושרה.\n" +
                 $"עכשיו ניתן להתחיל ולהשתמש במערכת בקישור הבא:\n" +
-                @"https://www.youtube.com/watch?v=dQw4w9WgXcQ";
-            await EmailService.SendMailToAddress([userCopy.email], "אישור בקשה ליצירת משתמש", welcomeMessage);
+                $"{Utils.CLIENT_BASE_URL}/#/login";
+            await EmailService.SendMailToAddresses([userCopy.email], "אישור בקשה ליצירת משתמש", welcomeMessage);
 
             if (!await UserRequestService.DeleteUserRequest(request.id))
             {
@@ -169,7 +195,7 @@ namespace teachers_lounge_server.Services
                 return false;
             }
 
-            string[] roles = await GetRelaventRolesByUserId(requestingUserId);
+            string[] roles = await GetRelevantRolesByUserId(requestingUserId);
             string targetRole = targetUsers[0].role;
 
             return roles.Some(role => role == targetRole);
@@ -212,10 +238,38 @@ namespace teachers_lounge_server.Services
 
             if (usersByGovId.Count != 1)
             {
+                List<UserRequest> openRequestsByGovId = await UserRequestService.GetUserRequestByField("govId", govId);
+
+                if (openRequestsByGovId.Count > 0)
+                {
+                    try
+                    {
+                        await EmailService.SendStatusBasedMessageToUser(openRequestsByGovId[0]);
+                    }
+                    catch
+                    {
+                        // We don't want the process to fail just because we failed to send a mail
+                    }
+                }
+
                 return null;
             }
 
             User found = usersByGovId[0];
+
+            if (found.activityStatus != ActivityStatus.Active)
+            {
+                try
+                {
+                    await EmailService.SendStatusBasedMessageToUser(found);
+                } catch
+                {
+                    // We don't want the process to fail just because we failed to send a mail
+                }
+
+                return null;
+            }
+
             bool doPasswordsMatch = password.Hash().Equals(found.password);
 
             if (!doPasswordsMatch)
@@ -239,19 +293,33 @@ namespace teachers_lounge_server.Services
         }
         public static async Task SendChangePasswordEmail(string email, string userId)
         {
-            await EmailService.SendMailToAddress([email], "שינוי סיסמא", $"במידה ואתה רוצה לשלות סיסממא תמצוץ לי את הביצה {userId}");
+            await EmailService.SendMailToAddresses([email], "שינוי סיסמא", $"במידה ואתה רוצה לשלות סיסממא תמצוץ לי את הביצה {userId}");
         }
 
-        public static async Task<UpdateResult> ChangePassword(string userId, string newPassword)
+        public static Task<UpdateResult> ChangePassword(string userId, string newPassword)
         {
-           return await UpdateUserByFields("_id", ObjectId.Parse(userId), "password", newPassword.Hash());
+           return UpdateUserByFields("_id", ObjectId.Parse(userId), "password", newPassword.Hash());
         }
 
-        public static async Task<string> getUserIdByGovId(string govId)
+        public static async Task<User?> GetUserByGovId(string govId)
         {
-            var users = await repo.GetUsersByField("govId", govId);
+            var users = await GetUsersByField("govId", govId);
 
-            return users.Count == 1 ? users[0].id : null;
+            return users.Count == 1 ? users[0] : null;
+        }
+
+        public static async Task<List<string>> GetUserEmailAddresses(string[] userIds)
+        {
+            var users = await repo.GetUsersByFieldValueIn("_id", userIds.FilterAndMap(id => id.IsObjectId(), id => ObjectId.Parse(id)));
+
+            return users.Map(user => user.email);
+        }
+
+        public static async Task<List<string>> GetUserEmailAddresses(List<string> userIds)
+        {
+            var users = await repo.GetUsersByFieldValueIn("_id", userIds.FilterAndMap(id => id.IsObjectId(), id => ObjectId.Parse(id)).ToArray());
+
+            return users.Map(user => user.email);
         }
     }
 }

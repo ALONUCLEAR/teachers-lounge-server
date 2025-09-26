@@ -17,15 +17,20 @@ namespace teachers_lounge_server.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// <param name="areActive">areActive: true -> active users, false -> blocked users</param> <br></br>
+        /// <param name="affectedOnly">affectedOnly: whether or not to filter for users the requesting user can affect, eg. change their associatedSchools</param>
+        /// </summary>
+        /// <returns></returns>
         [HttpGet("active/{areActive}", Name = "Get all active/blocked users")]
-        public async Task<ActionResult<List<User>>> GetAllUsersByStatus(bool areActive)
+        public async Task<ActionResult<List<User>>> GetAllUsersByStatus(bool areActive, [FromQuery] bool affectedOnly = false)
         {
             if (!Request.Headers.TryGetValue("userId", out var userId))
             {
                 return BadRequest("userId header is missing");
             }
 
-            return await UserService.GetUsersByStatus(userId, areActive ? ActivityStatus.Active : ActivityStatus.Blocked);
+            return await UserService.GetUsersByStatus(userId, areActive ? ActivityStatus.Active : ActivityStatus.Blocked, affectedOnly);
         }
 
         [HttpPost("from-request/{requestId}", Name = "Create user from request id")]
@@ -132,6 +137,16 @@ namespace teachers_lounge_server.Controllers
         {
             try
             {
+                if (!credentials.ContainsKey("govId"))
+                {
+                    return BadRequest("Failed to login the given user. Required field \"govId\" was not provided.");
+                }
+
+                if (!credentials.ContainsKey("password"))
+                {
+                    return BadRequest("Failed to login the given user. Required field \"password\" was not provided.");
+                }
+
                 string govId = credentials["govId"];
                 string password = credentials["password"];
 
@@ -204,23 +219,6 @@ namespace teachers_lounge_server.Controllers
             }
         }
 
-        [HttpPost("updatePassword/email", Name = "Send Mail To User To Update Password")]
-        public async Task<ActionResult<string>> SendUpdatePasswordEmail([FromBody] Dictionary<string, string> userDetails)
-        {
-            try
-            {
-                await UserService.SendChangePasswordEmail(userDetails["email"], userDetails["userId"]);
-
-                return Ok("Email Was Sent");
-            }
-            catch (Exception e)
-            {
-                this._logger.LogError(e.Message);
-
-                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Email Was Not Sent :()", detail: e.Message);
-            }
-        }
-
         [HttpPost("link-school/{schoolId}", Name = "Add the school from the associatedSchools array for all target users")]
         [UserIdValidator]
         public async Task<ActionResult<UpdateResult>> LinkSchool(string schoolId, [FromBody] string[] targetUserIds)
@@ -262,10 +260,19 @@ namespace teachers_lounge_server.Controllers
             }
         }
 
-        [HttpGet("{govId}", Name = "Get UserId By GovId")]
-        public async Task<ActionResult<string>> getUserIdByGovId(string govId)
+        [HttpGet("{govId}", Name = "Get User By GovId")]
+        public async Task<ActionResult<User?>> GetUserByGovId(string govId)
         {
-            return await UserService.getUserIdByGovId(govId);
+            try
+            {
+                return Ok(await UserService.GetUserByGovId(govId));
+            } catch (Exception e)
+            {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't get user with govId {govId}", detail: e.Message);
+            }
+
         }
     }
 }

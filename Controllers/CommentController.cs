@@ -47,7 +47,7 @@ namespace teachers_lounge_server.Controllers
                 return Unauthorized($"User {userId} does not have permission to update the comment {comment.id}");
             }
 
-            return Ok(await CommentService.UpsertComment(userId!, comment));
+            return Ok((await CommentService.UpsertComment(userId!, comment)).Serialize());
         }
 
         [HttpDelete("{commentId}", Name = "Delete comment")]
