@@ -205,6 +205,10 @@ namespace teachers_lounge_server.Services
             return repo.LinkSchool(targetUserIds.Map(ObjectId.Parse), ObjectId.Parse(schoolId));
         }
 
+        public static Task<UpdateResult> SetSchools(string userId, string[] schoolIds)
+        {
+            return repo.UpdateUserByFields("_id", ObjectId.Parse(userId), "associatedSchools", schoolIds.Map(ObjectId.Parse));
+        }
         public async static Task<bool> CanRequestAffectUser(string requestingUserId, string targetUserId, string targetStatus = ActivityStatus.Active)
         {
             List<User> targetUsers = new();

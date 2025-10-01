@@ -219,27 +219,41 @@ namespace teachers_lounge_server.Controllers
             }
         }
 
-        [HttpPost("link-school/{schoolId}", Name = "Add the school from the associatedSchools array for all target users")]
-        [UserIdValidator]
-        public async Task<ActionResult<UpdateResult>> LinkSchool(string schoolId, [FromBody] string[] targetUserIds)
+        [HttpPatch("{targetUserId}/set-schools", Name = "Set the schools as the associatedSchools array for the target user")]
+        public async Task<ActionResult<UpdateResult>> LinkSchool(string targetUserId, [FromBody] string[] schoolIds)
         {
             try
             {
-                if (targetUserIds.Some(id => !id.IsObjectId()))
+                if (!Request.Headers.TryGetValue("userId", out var requestingUserId))
                 {
-                    return BadRequest($"Invalid targetUserId. One of these values [{targetUserIds.Join(", ")}] did not fit the ObjectId format");
+                    return BadRequest($"Required \"userId\" header is missing");
                 }
 
-                if (!schoolId.IsObjectId())
+                if (!Utils.IsObjectId(requestingUserId!))
                 {
-                    return BadRequest($"Invalid schoolId {schoolId}. Did not fit the ObjectId format");
+                    return BadRequest($"Invalid \"userId\" header - {requestingUserId} is not a valid ObjectId");
                 }
 
-                return Ok(await UserService.LinkSchool(targetUserIds, schoolId));
+                if (schoolIds.Some(id => !id.IsObjectId()))
+                {
+                    return BadRequest($"Invalid schoolIds. One of these values [{schoolIds.Join(", ")}] did not fit the ObjectId format");
+                }
+
+                if (!targetUserId.IsObjectId())
+                {
+                    return BadRequest($"Invalid targetId {targetUserId}. Did not fit the ObjectId format");
+                }
+
+                if (!await UserService.CanRequestAffectUser(requestingUserId!, targetUserId))
+                {
+                    return Unauthorized($"User {requestingUserId} cannot set the schools associated with {targetUserId}");
+                }
+
+                return Ok(await UserService.SetSchools(targetUserId, schoolIds));
             } catch (Exception e) {
                 this._logger.LogError(e.Message);
 
-                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't link users {targetUserIds.Join(", ")} to school {schoolId}", detail: e.Message);
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't link user {targetUserId} to schools {schoolIds.Join(", ")}", detail: e.Message);
             }
         }
 
