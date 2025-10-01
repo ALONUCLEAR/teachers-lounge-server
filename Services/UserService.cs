@@ -43,6 +43,22 @@ namespace teachers_lounge_server.Services
                     return new string[0];
             }
         }
+
+        /// <summary>
+        /// 1 means the user has a better role than the target(a change would be a demotion)<br></br>
+        /// 0 means the user has the same role as the target(no change)<br></br>
+        /// -1 means the user has a lesser role than the target(a change would be a promotion)
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <param name="targetRole"></param>
+        /// <returns></returns>
+        public static async Task<int> CompareUserToTargetRole(string? userId, string targetRole)
+        {
+            string userRole = await GetUserRole(userId);
+
+            return Role.CompareRoles(userRole, targetRole);
+        }
+
         public async static Task<string[]> GetRelevantRolesByUserId(string? userId)
         {
             string userRole = await GetUserRole(userId);
@@ -52,6 +68,17 @@ namespace teachers_lounge_server.Services
         public async static Task<FilterDefinition<BsonDocument>> GetRoleBasedFilter(string? userId)
         {
             return GetPureRoleBasedFilter(await GetRelevantRolesByUserId(userId));
+        }
+
+        public static Task<UpdateResult> ChangeUserRole(string userId, string targetRole)
+        {
+            if (!Role.isValid(targetRole) || !ObjectId.TryParse(userId, out var targetUserId))
+            {
+                // Ideally we check before this function to get a more detailed code that isn't 500 but might as well check here too
+                throw new Exception($"Role({targetRole}) or userId({userId}) were invalid");
+            }
+
+            return repo.UpdateUserByFields("_id", targetUserId, "role", targetRole);
         }
 
         public static FilterDefinition<BsonDocument> GetPureRoleBasedFilter(string[] relevantRoles)
@@ -201,7 +228,7 @@ namespace teachers_lounge_server.Services
             return roles.Some(role => role == targetRole);
         }
 
-        public static async Task<bool> HasPermissions(string? userId, string? requiredRole)
+        public static async Task<bool> HasPermissions(string? userId, string? requiredRole, bool includeOwnRole = true)
         {
             if (requiredRole == null)
             {
@@ -217,7 +244,7 @@ namespace teachers_lounge_server.Services
 
             string[] lesserRoles = GetRelevantRoles(user.role);
 
-            return requiredRole == user.role || lesserRoles.Some(role => role == requiredRole);
+            return (includeOwnRole && requiredRole == user.role) || lesserRoles.Some(role => role == requiredRole);
         }
 
         public static Task<UpdateResult> ChangeUserStatus(string userId, bool isActive)

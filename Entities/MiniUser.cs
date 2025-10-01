@@ -48,6 +48,30 @@ namespace teachers_lounge_server.Entities
                     return key;
             }
         }
+
+
+        // The higher the number, the more the user can do
+        private static int GetRoleLevel(string role)
+        {
+            switch (role)
+            {
+                case Base:
+                    return 0;
+                case Admin:
+                    return 1;
+                case SuperAdmin:
+                    return 2;
+                case Support:
+                    return 3;
+                default:
+                    return -1;
+            }
+        }
+
+        public static int CompareRoles(string role1, string role2)
+        {
+            return GetRoleLevel(role1).CompareTo(GetRoleLevel(role2));
+        }
     }
 
     [BsonNoId]

@@ -260,7 +260,119 @@ namespace teachers_lounge_server.Controllers
             }
         }
 
-        [HttpGet("{govId}", Name = "Get User By GovId")]
+        [HttpPatch("promote/{targetUserId}/to/{targetRole}", Name = "Promote userId to role (if the permissions fit)")]
+        [UserIdValidator]
+        public async Task<ActionResult<bool>> Promote(string targetUserId, string targetRole)
+        {
+            try
+            {
+                Request.Headers.TryGetValue("userId", out var userId);
+                var validityResponse = await CanChangeUserRole(userId, targetUserId, targetRole);
+
+                if (validityResponse.Result == null || validityResponse.Result is not OkObjectResult okResult
+                    || okResult.Value is not bool isValid || !isValid)
+                {
+                    return validityResponse;
+                }
+
+                int targetUserRoleComparison = await UserService.CompareUserToTargetRole(targetUserId, targetRole);
+
+                if (targetUserRoleComparison >= 0)
+                {
+                    return BadRequest($"The target role {targetRole} is not a promotion for {targetUserId}.\nIf you meant to demote them, use /demote instead of /promote");
+                }
+
+                var res = await UserService.ChangeUserRole(targetUserId, targetRole);
+
+                return Ok(res.IsAcknowledged);
+            }
+            catch (Exception e)
+            {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "No Passwordo Changed", detail: e.Message);
+            }
+        }
+
+        [HttpPatch("demote/{targetUserId}/to/{targetRole}", Name = "Demote userId to role (if the permissions fit)")]
+        [UserIdValidator]
+        public async Task<ActionResult<bool>> Demote(string targetUserId, string targetRole)
+        {
+            try
+            {
+                Request.Headers.TryGetValue("userId", out var userId);
+                var validityResponse = await CanChangeUserRole(userId, targetUserId, targetRole);
+
+                if (validityResponse.Result == null || validityResponse.Result is not OkObjectResult okResult
+                    || okResult.Value is not bool isValid || !isValid)
+                {
+                    return validityResponse;
+                }
+
+                int targetUserRoleComparison = await UserService.CompareUserToTargetRole(targetUserId, targetRole);
+
+                if (targetUserRoleComparison <= 0)
+                {
+                    return BadRequest($"The target role {targetRole} is not a demotion for {targetUserId}.\nIf you meant to promote them, use /demote instead of /promote");
+                }
+
+                var res = await UserService.ChangeUserRole(targetUserId, targetRole);
+
+                return Ok(res.IsAcknowledged);
+            }
+            catch (Exception e)
+            {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "No Passwordo Changed", detail: e.Message);
+            }
+        }
+
+        private async Task<ActionResult<bool>> CanChangeUserRole(string? requestingUserId, string targetUserId, string role)
+        {
+            try
+            {
+                if (requestingUserId == null)
+                {
+                    return BadRequest("Required userId header was not provided");
+                }
+
+                if (!requestingUserId.IsObjectId())
+                {
+                    return BadRequest($"The requesting user id {requestingUserId} is not a valid ObjectId");
+                }
+
+                if (!targetUserId.IsObjectId())
+                {
+                    return BadRequest($"The given target user id {targetUserId} is not a valid ObjectId");
+                }
+
+                if (!Role.isValid(role))
+                {
+                    return BadRequest($"The given role({role}) is invalid");
+                }
+
+                if (!await UserService.CanRequestAffectUser(requestingUserId!, targetUserId))
+                {
+                    return Unauthorized($"The requesting user {requestingUserId} cannot change the role of the target user {targetUserId}");
+                }
+
+                if (!await UserService.HasPermissions(requestingUserId, role, false))
+                {
+                    return Unauthorized($"The requesting user {requestingUserId} cacnnot grant the role {role}");
+                }
+
+                return Ok(true);
+            } catch (Exception e)
+            {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Failed to validate users before role change", detail: e.Message);
+            }
+        }
+
+
+            [HttpGet("{govId}", Name = "Get User By GovId")]
         public async Task<ActionResult<User?>> GetUserByGovId(string govId)
         {
             try
