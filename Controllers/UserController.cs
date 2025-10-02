@@ -219,8 +219,34 @@ namespace teachers_lounge_server.Controllers
             }
         }
 
+        [HttpPost("link-school/{schoolId}", Name = "Add the school from the associatedSchools array for all target users")]
+        [UserIdValidator]
+        public async Task<ActionResult<UpdateResult>> LinkSchool(string schoolId, [FromBody] string[] targetUserIds)
+        {
+            try
+            {
+                if (targetUserIds.Some(id => !id.IsObjectId()))
+                {
+                    return BadRequest($"Invalid targetUserId. One of these values [{targetUserIds.Join(", ")}] did not fit the ObjectId format");
+                }
+
+                if (!schoolId.IsObjectId())
+                {
+                    return BadRequest($"Invalid schoolId {schoolId}. Did not fit the ObjectId format");
+                }
+
+                return Ok(await UserService.LinkSchool(targetUserIds, schoolId));
+            }
+            catch (Exception e)
+            {
+                this._logger.LogError(e.Message);
+
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't link users {targetUserIds.Join(", ")} to school {schoolId}", detail: e.Message);
+            }
+        }
+
         [HttpPatch("{targetUserId}/set-schools", Name = "Set the schools as the associatedSchools array for the target user")]
-        public async Task<ActionResult<UpdateResult>> LinkSchool(string targetUserId, [FromBody] string[] schoolIds)
+        public async Task<ActionResult<UpdateResult>> SetSchools(string targetUserId, [FromBody] string[] schoolIds)
         {
             try
             {

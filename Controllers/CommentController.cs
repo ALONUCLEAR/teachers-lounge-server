@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.Json;
 using teachers_lounge_server.Entities;
 using teachers_lounge_server.Services;
 
@@ -35,16 +36,46 @@ namespace teachers_lounge_server.Controllers
         }
 
         [HttpPost(Name = "Upsert comment")]
-        public async Task<ActionResult<ReplaceOneResult>> UpsertComment([FromBody] Comment comment)
+        public async Task<ActionResult<ReplaceOneResult>> UpsertComment([FromForm] string commentJson, [FromForm] List<IFormFile>? mediaFiles)
         {
             if (!Request.Headers.TryGetValue("userId", out var userId))
             {
                 return BadRequest("userId header is missing");
             }
 
+            Comment comment;
+            try
+            {
+                comment = JsonSerializer.Deserialize<Comment>(commentJson, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                })!;
+            }
+            catch (Exception e)
+            {
+                return BadRequest("Invalid JSON in comment data: " + e.Message);
+            }
+
             if ((comment.id?.IsObjectId() ?? false) && !CommentService.CanUserEditComment(userId!, comment))
             {
                 return Unauthorized($"User {userId} does not have permission to update the comment {comment.id}");
+            }
+
+            // Process media files if any
+            if (mediaFiles is not null && mediaFiles.Count > 0)
+            {
+                List<MediaItem> mediaItems = new();
+
+                foreach (var file in mediaFiles)
+                {
+                    var result = await MediaService.ProcessMediaAsync(file);
+                    if (result.ErrorMessage != null || result.StatusCode >= StatusCodes.Status300MultipleChoices)
+                        return StatusCode(result.StatusCode, result.ErrorMessage);
+
+                    mediaItems.Add(result.Data!);
+                }
+
+                comment.media = mediaItems.ToArray();
             }
 
             return Ok((await CommentService.UpsertComment(userId!, comment)).Serialize());
