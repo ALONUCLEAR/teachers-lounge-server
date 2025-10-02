@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.Json;
 using teachers_lounge_server.Entities;
 using teachers_lounge_server.Services;
 
@@ -46,7 +47,11 @@ namespace teachers_lounge_server.Controllers
         }
 
         [HttpPost(Name = "Upsert post")]
-        public async Task<ActionResult<ReplaceOneResult>> UpsertPost([FromBody] Post post, [FromQuery(Name = "importantParticipants[]")] string[]? importantParticipants = null)
+        public async Task<ActionResult<ReplaceOneResult>> UpsertPost(
+            [FromForm] string postJson,
+            [FromForm] List<IFormFile>? mediaFiles,
+            [FromQuery(Name = "importantParticipants[]")] string[]? importantParticipants = null
+        )
         {
             try
             {
@@ -55,9 +60,39 @@ namespace teachers_lounge_server.Controllers
                     return BadRequest("userId header is missing");
                 }
 
+                Post post;
+                try
+                {
+                    post = JsonSerializer.Deserialize<Post>(postJson, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    })!;
+                }
+                catch (Exception e)
+                {
+                    return BadRequest("Invalid JSON in post data: " + e.Message);
+                }
+
                 if ((post.id?.IsObjectId() ?? false) && !PostService.CanUserEditPost(userId, post))
                 {
                     return Unauthorized($"User {userId} does not have permissions to update the post {post.id}");
+                }
+
+                // Process media files if any
+                if (mediaFiles is not null && mediaFiles.Count > 0)
+                {
+                    List<MediaItem> mediaItems = new();
+
+                    foreach (var file in mediaFiles)
+                    {
+                        var result = await MediaService.ProcessMediaAsync(file);
+                        if (result.ErrorMessage != null || result.StatusCode >= StatusCodes.Status300MultipleChoices)
+                            return StatusCode(result.StatusCode, result.ErrorMessage);
+
+                        mediaItems.Add(result.Data!);
+                    }
+
+                    post.media = mediaItems.ToArray();
                 }
 
                 var res = await PostService.UpsertPost(post);
@@ -86,7 +121,7 @@ namespace teachers_lounge_server.Controllers
             {
                 this._logger.LogError(e, "An error occured while trying to create post");
 
-                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't create post {post.title}", detail: e.Message);
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: $"Couldn't create the post", detail: e.Message);
             }
         }
 

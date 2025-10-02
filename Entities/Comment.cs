@@ -18,7 +18,7 @@ namespace teachers_lounge_server.Entities
             parentPostId = "";
         }
 
-        public Comment(string id, string authorId, string parentId, string parentPostId, string body, byte[][] media, DateTime publishedAt, DateTime? lastUpdatedAt, int totalChildrenCount)
+        public Comment(string id, string authorId, string parentId, string parentPostId, string body, MediaItem[] media, DateTime publishedAt, DateTime? lastUpdatedAt, int totalChildrenCount)
             : base(id, authorId, body, media, publishedAt, lastUpdatedAt, totalChildrenCount)
         {
             this.parentId = parentId;

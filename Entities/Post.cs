@@ -17,7 +17,7 @@ namespace teachers_lounge_server.Entities
             subjectId = "";
         }
 
-        public Post(string id, string title, string subjectId, string authorId, string body, byte[][] media, DateTime publishedAt, DateTime? lastUpdatedAt, int totalChildrenCount)
+        public Post(string id, string title, string subjectId, string authorId, string body, MediaItem[] media, DateTime publishedAt, DateTime? lastUpdatedAt, int totalChildrenCount)
             : base(id, authorId, body, media, publishedAt, lastUpdatedAt, totalChildrenCount)
         {
             this.title = title;

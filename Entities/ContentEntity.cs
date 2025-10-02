@@ -3,6 +3,18 @@ using MongoDB.Bson;
 
 namespace teachers_lounge_server.Entities
 {
+    public class MediaItem
+    {
+        public byte[] Data { get; set; }
+        public string Type { get; set; } = "image/jpeg";
+
+        public MediaItem(byte[] data, string mimeType)
+        {
+            Data = data;
+            Type = mimeType;
+        }
+    }
+
     public class ContentEntity: DeserializableMongoEntity<ContentEntity>
     {
         [BsonRepresentation(BsonType.ObjectId)]
@@ -13,7 +25,7 @@ namespace teachers_lounge_server.Entities
 
         public string body { get; set; }
 
-        public byte[][] media { get; set; }
+        public MediaItem[] media { get; set; }
 
         public DateTime publishedAt { get; set; }
 
@@ -27,12 +39,12 @@ namespace teachers_lounge_server.Entities
             id = "";
             authorId = "";
             body = "";
-            media = new byte[0][];
+            media = new MediaItem[0];
             publishedAt = DateTime.UtcNow;
             lastUpdatedAt = null;
         }
 
-        public ContentEntity(string id, string authorId, string body, byte[][] media, DateTime publishedAt, DateTime? lastUpdatedAt, int totalChildrenCount)
+        public ContentEntity(string id, string authorId, string body, MediaItem[] media, DateTime publishedAt, DateTime? lastUpdatedAt, int totalChildrenCount)
         {
             this.id = id;
             this.authorId = authorId;
@@ -63,7 +75,12 @@ namespace teachers_lounge_server.Entities
 
             doc.Add("authorId", ObjectId.Parse(authorId));
             doc.Add("body", body);
-            doc.Add("media", new BsonArray(media.Map(x => new BsonBinaryData(x))));
+            doc.Add("media", new BsonArray(media.Map(item =>
+                new BsonDocument {
+                    { "data", new BsonBinaryData(item.Data) },
+                    { "type", item.Type }
+                }
+            )));
             doc.Add("publishedAt", publishedAt);
             doc.Add("lastUpdatedAt", lastUpdatedAt == null ? BsonNull.Value : (BsonValue)lastUpdatedAt);
             doc.Add("totalChildrenCount", totalChildrenCount);
@@ -78,9 +95,19 @@ namespace teachers_lounge_server.Entities
             content.id = document.GetValueOrDefault<ObjectId>("_id").ToString();
             content.authorId = document.GetValueOrDefault<ObjectId>("authorId").ToString();
             content.body = document.GetValueOrDefault<string>("body") ?? "";
-            content.media = document.GetValueOrDefault<BsonArray>("media")?
-                .Map(x => ((BsonBinaryData)x).Bytes)
-                .ToArray() ?? Array.Empty<byte[]>();
+
+            if (document.TryGetValue("media", out var mediaDocument) && mediaDocument is BsonArray mediaArray)
+            {
+                content.media = mediaArray.Map(file =>
+                {
+                    var doc = file as BsonDocument;
+                    var data = doc!.GetValue("data").AsBsonBinaryData.Bytes;
+                    var mimeType = doc.GetValueOrDefault<string>("type") ?? "image/jpeg";
+                    return new MediaItem(data, mimeType);
+                })
+                .ToArray() ?? Array.Empty<MediaItem>();
+            }
+
             content.publishedAt = document.GetValueOrDefault<DateTime>("publishedAt");
 
             if (document.TryGetValue("lastUpdatedAt", out var bsonValue) && bsonValue.IsBsonDateTime)
