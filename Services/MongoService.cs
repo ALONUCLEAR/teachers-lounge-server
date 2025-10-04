@@ -1,6 +1,7 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
+using System.Collections;
 using teachers_lounge_server.Entities;
 
 namespace teachers_lounge_server.Services
@@ -75,18 +76,19 @@ namespace teachers_lounge_server.Services
 
             return Builders<BsonDocument>.Filter.And(filterList);
         }
-        public static Task<List<TEntity>> GetEntitiesByMultipleFilters<TEntity>(IMongoCollection<BsonDocument> collection, IEnumerable<FilterDefinition<BsonDocument>> filterList, Func<BsonDocument, TEntity> deserializer) where TEntity : MongoEntity {
+        public static Task<List<TEntity>> GetEntitiesByMultipleFilters<TEntity>(IMongoCollection<BsonDocument> collection, IEnumerable<FilterDefinition<BsonDocument>> filterList, Func<BsonDocument, TEntity> deserializer) where TEntity : MongoEntity
+        {
             FilterDefinition<BsonDocument> combinedFilter = MergeFilterDefinitions(filterList);
 
             return GetEntitiesByFilter(collection, combinedFilter, deserializer);
         }
-        public async static Task<List<TEntity>> GetEntitiesByFilter<TEntity>(IMongoCollection<BsonDocument> collection, FilterDefinition<BsonDocument> filter, Func<BsonDocument, TEntity> deserializer) where TEntity: MongoEntity
+        public async static Task<List<TEntity>> GetEntitiesByFilter<TEntity>(IMongoCollection<BsonDocument> collection, FilterDefinition<BsonDocument> filter, Func<BsonDocument, TEntity> deserializer) where TEntity : MongoEntity
         {
             List<BsonDocument> filteredEntities = await collection.Find(filter).ToListAsync();
 
             return filteredEntities.Select(deserializer).ToList();
         }
-        public static Task<List<TEntity>> GetEntitiesByField<TEntity, TValue>(IMongoCollection<BsonDocument> collection, string field, TValue value, Func<BsonDocument, TEntity> deserializer) where TEntity: MongoEntity
+        public static Task<List<TEntity>> GetEntitiesByField<TEntity, TValue>(IMongoCollection<BsonDocument> collection, string field, TValue value, Func<BsonDocument, TEntity> deserializer) where TEntity : MongoEntity
         {
             FilterDefinition<BsonDocument> filter = Builders<BsonDocument>.Filter.Eq(field, value);
 
@@ -101,24 +103,40 @@ namespace teachers_lounge_server.Services
             return filteredEntites.Select(deserializer).ToList();
         }
 
-        public async static Task CreateEntity<TEntity>(IMongoCollection<BsonDocument> collection, TEntity entityToCreate) where TEntity : MongoEntity
+        public async static Task<List<TEntity>> GetEntitiesByFieldContainsValue<TEntity, TValue>(IMongoCollection<BsonDocument> collection, string field, TValue filterValue, Func<BsonDocument, TEntity> deserializer) where TEntity : MongoEntity
+        {
+            var filter = Builders<BsonDocument>.Filter.AnyEq(field, filterValue);
+            var filteredEntites = await collection.Find(filter).ToListAsync();
+
+            return filteredEntites.Select(deserializer).ToList();
+        }
+
+        public async static Task<BsonValue?> CreateEntity<TEntity>(IMongoCollection<BsonDocument> collection, TEntity entityToCreate) where TEntity : MongoEntity
         {
             var createdBson = entityToCreate.ToBsonDocument();
             await collection.InsertOneAsync(createdBson);
+
+            if (!createdBson.TryGetValue("_id", out var newId))
+            {
+                return null;
+            }
+
+            return newId;
         }
         public async static Task<ReplaceOneResult> UpsertEntity<TEntity>(IMongoCollection<BsonDocument> collection, TEntity upsertedEntity) where TEntity : MongoEntity
         {
             if (!upsertedEntity.id.IsObjectId())
             {
-                await CreateEntity(collection, upsertedEntity);
-                return new ReplaceOneResult.Acknowledged(0, 1, null);
+                var createdEntityId = await CreateEntity(collection, upsertedEntity);
+
+                return new ReplaceOneResult.Acknowledged(0, 1, createdEntityId);
             }
 
             var upsertedEntityId = ObjectId.Parse(upsertedEntity.id);
             BsonDocument[] idFilter = { new BsonDocument("$match", new BsonDocument("_id", upsertedEntityId)) };
             BsonDocument[] fullAggregatePipeLine = Utils.Merge(idFilter, idConverterPipeline);
 
-            var entitiesToUpsert = await collection.Aggregate<TEntity>(fullAggregatePipeLine).ToListAsync();
+            var entitiesToUpsert = await collection.Aggregate<BsonDocument>(fullAggregatePipeLine).ToListAsync();
 
             if (entitiesToUpsert.Count > 1)
             {
@@ -144,7 +162,6 @@ namespace teachers_lounge_server.Services
             return await collection.UpdateManyAsync(filter, update);
         }
 
-
         public async static Task<bool> DeleteEntity(IMongoCollection<BsonDocument> collection, string entityId)
         {
             if (!entityId.IsObjectId())
@@ -156,6 +173,46 @@ namespace teachers_lounge_server.Services
             await collection.DeleteOneAsync(filter);
 
             return true;
+        }
+        public static async Task<List<ObjectId>> GraphTraverseIds(
+            IMongoCollection<BsonDocument> collection,
+            ObjectId startId,
+            string startWithField,
+            string connectFromField,
+            string connectToField,
+            string outputFieldName)
+        {
+            var pipeline = new BsonDocument[]
+            {
+                new BsonDocument("$match", new BsonDocument("_id", startId)),
+                new BsonDocument("$graphLookup", new BsonDocument
+                {
+                    { "from", collection.CollectionNamespace.CollectionName },
+                    { "startWith", $"${startWithField}" },
+                    { "connectFromField", connectFromField },
+                    { "connectToField", connectToField },
+                    { "as", "linked" }
+                }),
+                new BsonDocument("$project", new BsonDocument(outputFieldName,
+                new BsonDocument("$map", new BsonDocument
+                {
+                    { "input", "$linked" },
+                    { "as", "x" },
+                    { "in", new BsonDocument("$getField", new BsonDocument
+                    {
+                        { "field", "_id" },
+                        { "input", "$$x" }
+                    })
+                    }
+                })
+                ))
+            };
+
+            var result = await collection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+
+            return result?.GetValue(outputFieldName)?.AsBsonArray
+                ?.Select(id => id.AsObjectId).ToList()
+                ?? new List<ObjectId>();
         }
     }
 }

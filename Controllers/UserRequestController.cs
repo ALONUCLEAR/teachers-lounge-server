@@ -65,7 +65,7 @@ namespace teachers_lounge_server.Controllers
                 return BadRequest("userId header is missing");
             }
 
-            if (!await UserService.CanRequestAffectUser(requestingUserId, requestId))
+            if (!await UserService.CanRequestAffectUser(requestingUserId!, requestId, ActivityStatus.Pending))
             {
                 return Unauthorized($"You do not have permissions to deny the request {requestId}");
             }

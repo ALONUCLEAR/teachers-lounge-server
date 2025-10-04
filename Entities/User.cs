@@ -42,31 +42,26 @@ namespace teachers_lounge_server.Entities
     [BsonNoId]
     public class User : MiniUser
     {
-        public string[] associations { get; set; }
         public UserPreferences preferences { get; set; }
 
         public User(): base()
         {
-            this.associations = new string[0];
             this.preferences = new UserPreferences();
         }
 
         public User(string id, string govId, string email, string activityStatus, string password, string role, UserInfo info, string[] associatedIds)
             : base(id, govId, email, activityStatus, password, role, info, associatedIds)
         {
-            this.associations = new string[0];
             this.preferences = new UserPreferences();
         }
 
         public User(MiniUser miniUser) : base(miniUser)
         {
-            this.associations = new string[0];
             this.preferences = new UserPreferences();
         }
 
         public User(User user) : base(user)
         {
-            this.associations = user.associations.ShallowClone();
             this.preferences = new UserPreferences();
         }
 
@@ -76,7 +71,6 @@ namespace teachers_lounge_server.Entities
             var objIdMapper = (string objId) => ObjectId.Parse(objId);
 
             fullDocument.Set("associatedSchools", new BsonArray(associatedSchools.Map(objIdMapper)));
-            fullDocument.Add("associations", new BsonArray(associations.Map(objIdMapper)));
             fullDocument.Add("preferences", preferences.ToBsonDocument());
 
             return fullDocument;
@@ -86,8 +80,6 @@ namespace teachers_lounge_server.Entities
         {
             User result = new User(MiniUser.FromBsonDocument(document, true));
 
-
-            result.associations = document.GetValue("associations").AsBsonArray.Select(x => x.AsObjectId.ToString()).ToArray();
             result.preferences = UserPreferences.FromBsonDocument(document.GetValue("preferences").AsBsonDocument);
 
             return result;

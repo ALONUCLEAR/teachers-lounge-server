@@ -31,13 +31,54 @@ namespace teachers_lounge_server.Entities
         {
             return typeof(Role).GetFields().Map(field => field.Name);
         }
+
+        public static string HebrewFromKey(string key)
+        {
+            switch (key)
+            {
+                case Base:
+                    return "מורה";
+                case Admin:
+                    return "מנהל(/ת)";
+                case SuperAdmin:
+                    return "בכיר(/ה)";
+                case Support:
+                    return "תמיכה";
+                default:
+                    return key;
+            }
+        }
+
+
+        // The higher the number, the more the user can do
+        private static int GetRoleLevel(string role)
+        {
+            switch (role)
+            {
+                case Base:
+                    return 0;
+                case Admin:
+                    return 1;
+                case SuperAdmin:
+                    return 2;
+                case Support:
+                    return 3;
+                default:
+                    return -1;
+            }
+        }
+
+        public static int CompareRoles(string role1, string role2)
+        {
+            return GetRoleLevel(role1).CompareTo(GetRoleLevel(role2));
+        }
     }
 
     [BsonNoId]
     public class MiniUser : DeserializableMongoEntity<MiniUser>
     {
         [BsonRepresentation(BsonType.ObjectId)]
-        public new string id { get; set; }
+        public override string id { get; set; }
         public string govId { get; set; }
         public string email { get; set; }
         public string activityStatus { get; set; }

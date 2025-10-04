@@ -1,8 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Net.Mail;
-using System.Security.Cryptography;
-using System.Text;
 using teachers_lounge_server.Entities;
 using teachers_lounge_server.Repositories;
 
@@ -65,7 +63,7 @@ namespace teachers_lounge_server.Services
             return "";
         }
 
-        private async static Task<bool> DoesUserExist(UserRequest request, bool sendMailIfUserExists = true)
+        private async static Task<bool> DoesUserExist(UserRequest request, bool sendMailIfUserExists = false)
         {
             string userWithEmailMessageEnd = await GetEmailTextBasedOnUserStatus(request.email);
 
@@ -73,7 +71,7 @@ namespace teachers_lounge_server.Services
             {
                 if (sendMailIfUserExists)
                 {
-                    await EmailService.SendMailToAddress(request.email, "נסיון הרשמה - מערכת חדר מורים", $"זיהינו שניסת להרשם עם כתובת המייל הזאת.\n{userWithEmailMessageEnd}");
+                    await EmailService.SendMailToAddresses([request.email], "נסיון הרשמה - מערכת חדר מורים", $"זיהינו שניסת להרשם עם כתובת המייל הזאת.\n{userWithEmailMessageEnd}");
                 }
 
                 return true;
@@ -81,6 +79,7 @@ namespace teachers_lounge_server.Services
 
             return await DoesUserWithGovIdExist(request.govId);
         }
+
         public async static Task<UserRequest> GetFullUserRequestById(ObjectId requestId)
         {
             return (await repo.GetUserRequestByField("_id", requestId))[0];
@@ -112,7 +111,7 @@ namespace teachers_lounge_server.Services
                 return false;
             }
 
-            string[] roles = await UserService.GetRelaventRolesByUserId(userId);
+            string[] roles = await UserService.GetRelevantRolesByUserId(userId);
             string targetRole = targetUsers[0].role;
 
             return roles.Some(role => role == targetRole);
@@ -124,6 +123,15 @@ namespace teachers_lounge_server.Services
 
             return RemovePassword(await repo.GetUserReqeuestsByFilter(relavenceFilter));
         }
+
+        public async static Task<List<User>> GetAllRequestsForSchool(string userId, string schoolId)
+        {
+            List<FilterDefinition<BsonDocument>> relavenceFilters = new();
+            relavenceFilters.Add(await UserService.GetRoleBasedFilter(userId));
+            relavenceFilters.Add(Builders<BsonDocument>.Filter.AnyEq("associatedSchools", schoolId));
+
+            return RemovePassword(await repo.GetUserReqeuestsByMultipleFilters(relavenceFilters)).Map(request => new User(request));
+        }
         public static async Task<int> CreateUserRequest(UserRequest userRequest)
         {
             if (!AreComplexFieldsValid(userRequest))
@@ -131,9 +139,34 @@ namespace teachers_lounge_server.Services
                 return StatusCodes.Status400BadRequest;
             }
 
-            if (await DoesUserExist(userRequest))
+            if (await DoesUserExist(userRequest, true))
             {
                 return StatusCodes.Status200OK;
+            }
+
+
+            string[] nonSuperRoles = { Role.Base, Role.Admin };
+            string alertBody = $"המשתמש {userRequest.info.fullName}({userRequest.govId}) מבקש להצטרף למערכת.\n"
+                + $"ההרשאה שבוקשה היא {Role.HebrewFromKey(userRequest.role)}\n";
+
+            bool isSuper = !nonSuperRoles.Contains(userRequest.role);
+            ObjectId schoolId = ObjectId.Empty;
+
+            if (!isSuper)
+            {
+                if (userRequest.associatedSchools.Length < 1 || !ObjectId.TryParse(userRequest.associatedSchools[0], out schoolId))
+                {
+                    return StatusCodes.Status400BadRequest;
+                }
+
+                var school = await SchoolService.GetSchoolById(schoolId);
+
+                if (school == null)
+                {
+                    return StatusCodes.Status400BadRequest;
+                }
+
+                alertBody += $"ובית הספר הוא {school.name}({school.municipality.name})";
             }
 
             UserRequest serializedInput = SerializeUserRequest(userRequest);
@@ -144,8 +177,32 @@ namespace teachers_lounge_server.Services
                 $"הבקשה נקלטה במערכת ותופץ בדקות הקרובות למאשרים הרלוונטיים.\n" +
                 $"כשהבקשה תאושר ישלח מייל לידע אותך שאפשר להתחיל להשתמש במערכת.\n" +
                 $"שיהיה לך יום קסום!";
-            await EmailService.SendMailToAddress(serializedInput.email, "בקשת יצירת משתמש", welcomeMessage);
-            // TODO: send alerts(+mails) to the group of relavent approvers
+            await EmailService.SendMailToAddresses([serializedInput.email], "בקשת יצירת משתמש", welcomeMessage);
+
+            string acceptancePath = isSuper ? "user-status-management" : "teacher-management?pending=true";
+
+            Alert newUserToAcceptAlert = new Alert()
+            {
+                title = "משתמש חדש מבקש את אישורך להצטרף",
+                body = alertBody,
+                importanceLevel = isSuper ? ImportanceLevel.Urgent : ImportanceLevel.High,
+                link = $"{Utils.CLIENT_BASE_URL}/#/{acceptancePath}",
+                dateCreated = DateTime.Now,
+            };
+
+            if (isSuper)
+            {
+                newUserToAcceptAlert = await AlertService.FillAlertByRoles(newUserToAcceptAlert, [Role.Support]);
+            } else if (userRequest.role == Role.Admin)
+            {
+                newUserToAcceptAlert = await AlertService.FillAlertByRoles(newUserToAcceptAlert, [Role.SuperAdmin]);
+            }
+            else
+            {
+                newUserToAcceptAlert = await AlertService.FillAlertBySchool(newUserToAcceptAlert, schoolId);
+            }
+
+            await AlertService.SendAlert(newUserToAcceptAlert, true, null);
 
             return StatusCodes.Status200OK;
         }
@@ -163,7 +220,7 @@ namespace teachers_lounge_server.Services
                     $"בקשת שחזור נועדה למשתמשים שנחסמו. שלך עדיין לא אושר אישור ראשוני\n" +
                     $"אנא פנה לגורמים הרלוונטיים כדי שיאשרו את הרשמתך";
 
-                await EmailService.SendMailToAddress(userRequest.email, mailTitle, pendingUserMessage);
+                await EmailService.SendMailToAddresses([userRequest.email], mailTitle, pendingUserMessage);
 
                 return;
             }
@@ -178,15 +235,44 @@ namespace teachers_lounge_server.Services
 
             var user = usersWithGovId[0];
 
-            string fullName = "there";//TODO: replace with actual fullName when the user class is implemented
             string messageBody = user.activityStatus == ActivityStatus.Blocked
                 ? "בקשת השחזור שלך נשלחה לגורמים הרלוונטיים"
                 : "שמנו לב שניסית לשלוח בקשת שחזור למרות שהמשתמש שלך פעיל.\n" +
                   "בשביל מקרים של קשיים בהתחברות למשתמש יצרנו גם דף \"שכחתי סיסמה\" בקישור הבא\n" +
-                  @"https://www.youtube.com/watch?v=dQw4w9WgXcQ";
-            string message = $"שלום {fullName}.\n${messageBody}";
+                  // TODO: actually put the index there
+                  @$"{Utils.CLIENT_BASE_URL}/#/forgot-password";
+            string message = $"שלום {user.info.fullName}.\n{messageBody}";
 
-            await EmailService.SendMailToAddress(user.email, mailTitle, message);
+            if (user.activityStatus == ActivityStatus.Blocked)
+            {
+                string[] nonSuperRoles = { Role.Base, Role.Admin };
+                string alertBody = $"המשתמש {user.info.fullName}({user.govId}) מבקש לבטל את השהייתו מהמערכת.\n"
+                    + $"ההרשאה שהייתה לו היא {Role.HebrewFromKey(user.role)}\n";
+
+                bool isSuper = !nonSuperRoles.Contains(user.role);
+
+                Alert unblockUserAlert = new Alert()
+                {
+                    title = "משתמש מבקש שחזור",
+                    body = alertBody,
+                    importanceLevel = isSuper ? ImportanceLevel.Urgent : ImportanceLevel.High,
+                    link = $"{Utils.CLIENT_BASE_URL}/#/user-status-management",
+                    dateCreated = DateTime.Now,
+                };
+
+                if (isSuper)
+                {
+                    unblockUserAlert = await AlertService.FillAlertByRoles(unblockUserAlert, [Role.Support]);
+                }
+                else
+                {
+                    unblockUserAlert = await AlertService.FillAlertByRoles(unblockUserAlert, [Role.SuperAdmin]);
+                }
+
+                await AlertService.SendAlert(unblockUserAlert, true, user.id);
+            }
+
+            await EmailService.SendMailToAddresses([user.email], mailTitle, message);
         }
 
         public static Task<bool> DeleteUserRequest(string userRequestId)

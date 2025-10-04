@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
+﻿using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
+using MongoDB.Driver;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -7,6 +8,8 @@ namespace teachers_lounge_server
 {
     public static class Utils
     {
+        //TODO: replace this with the actual prod link
+        public static string CLIENT_BASE_URL = "http://localhost:4200";
         public static bool IsObjectId(this string potentialId)
         {
             var empty = ObjectId.Empty;
@@ -31,6 +34,11 @@ namespace teachers_lounge_server
             return arr.FilterAndMap(predicate, x => x);
         }
 
+        public static List<T> Filter<T>(this IEnumerable<T> arr, Predicate<T> predicate)
+        {
+            return arr.FilterAndMap(predicate, x => x);
+        }
+
         public static TOut[] Map<TIn, TOut>(this TIn[] arr, Func<TIn, TOut> mapper)
         {
             TOut[] result = new TOut[arr.Length];
@@ -38,6 +46,33 @@ namespace teachers_lounge_server
             for(int i = 0; i < arr.Length; i++)
             {
                 result[i] = mapper(arr[i]);
+            }
+
+            return result;
+        }
+
+        public static List<TOut> Map<TIn, TOut>(this IEnumerable<TIn> lst, Func<TIn, TOut> mapper)
+        {
+            List<TOut> result = new();
+
+            foreach(var el in lst)
+            {
+                result.Add(mapper(el));
+            }
+
+            return result;
+        }
+
+        public static List<TOut> FilterAndMap<TIn, TOut>(this IEnumerable<TIn> lst, Predicate<TIn> predicate, Func<TIn, TOut> mapper)
+        {
+            List<TOut> result = new List<TOut>();
+
+            foreach (TIn val in lst)
+            {
+                if (predicate(val))
+                {
+                    result.Add(mapper(val));
+                }
             }
 
             return result;
@@ -204,6 +239,44 @@ namespace teachers_lounge_server
             }
 
             return hashedPassword;
+        }
+        public static string Join<T>(this IEnumerable<T> lst, string delimeter) where T: notnull
+        {
+            string joinedString = lst.ElementAt(0).ToString() ?? "";
+
+            for (int i = 1; i < lst.Count(); i++)
+            {
+                joinedString += delimeter + lst.ElementAt(i).ToString();
+            }
+
+            return joinedString;
+        }
+
+        public static string Join<T>(this T[] arr, string delimeter) where T: notnull
+        {
+            string joinedString = arr[0].ToString() ?? "";
+
+            for (int i = 1; i < arr.Length; i++)
+            {
+                joinedString += delimeter + arr[i].ToString();
+            }
+
+            return joinedString;
+        }
+
+        /// <summary>
+        /// This function is needed cause Mongo don't know how to write proper c# code, so if upsertedId is set we get a serializing error when returning to client
+        /// </summary>
+        /// <param name="replaceOneResult"></param>
+        /// <returns></returns>
+        public static object Serialize(this ReplaceOneResult replaceOneResult)
+        {
+            return new
+            {
+                MatchedCount = replaceOneResult.MatchedCount,
+                ModifiedCount = replaceOneResult.ModifiedCount,
+                UpsertedId = replaceOneResult.UpsertedId?.ToString()
+            };
         }
     }
 }

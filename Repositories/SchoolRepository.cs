@@ -13,6 +13,10 @@ namespace teachers_lounge_server.Repositories
             return MongoService.GetEntireCollection<School>(Collection);
         }
 
+        public Task<List<School>> GetSchoolsByField<TValue>(string field, TValue value)
+        {
+            return MongoService.GetEntitiesByField(Collection, field, value, School.FromBsonDocument);
+        }
         public Task<List<ObjectId>> GetExistingSchoolIds(string[] schoolIds)
         {
             ObjectId[] validIds = schoolIds.FilterAndMap(id => id.IsObjectId(), id => ObjectId.Parse(id));
