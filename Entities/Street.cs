@@ -4,24 +4,32 @@ namespace teachers_lounge_server.Entities
 {
     public class Street : GovernmentData
     {
-        public int municipalityFk;
+        public int municipalityId { get; set; }
         public Street() : base() { }
-        public Street(int id, string name, int fk, int municipalityFk) : base(id, name, fk)
+        public Street(int id, string name, int municipalityId) : base(id, name)
         {
-            this.municipalityFk = municipalityFk;
+            this.municipalityId = municipalityId;
         }
-
+        public Street(GovernmentData toCopy): base(toCopy) { }
         public Street(Street toCopy) : base(toCopy)
         {
-            this.municipalityFk = toCopy.municipalityFk;
+            this.municipalityId = toCopy.municipalityId;
         }
 
         public override BsonDocument ToBsonDocument()
         {
             var fullDocument = base.ToBsonDocument();
-            fullDocument.Add("municipalityFk", municipalityFk);
+            fullDocument.Add("municipalityId", municipalityId);
 
             return fullDocument;
+        }
+
+        public static new Street FromBsonDocument(BsonDocument document)
+        {
+            Street result = new Street(GovernmentData.FromBsonDocument(document));
+            result.municipalityId = document.GetValueOrDefault<int>("municipalityId");
+
+            return result;
         }
     }
 }
