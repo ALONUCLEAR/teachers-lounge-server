@@ -11,7 +11,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(corsPolicyName, policy =>
     {
-        policy.WithOrigins("http://localhost:4200", "https://localhost:4200", "https://teachers-lounge.netlify.app")
+        policy.WithOrigins("http://localhost:4200", "https://localhost:4200", "https://teachers-lounge.netlify.app", "https://deploy-preview-17--teachers-lounge.netlify.app")
         .AllowAnyHeader()
         .AllowAnyMethod();
     });
